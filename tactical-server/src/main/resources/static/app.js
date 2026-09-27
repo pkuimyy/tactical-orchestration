@@ -314,7 +314,7 @@ function svg(tag, attributes = {}, text) {
   return node;
 }
 function renderMap() {
-  const s = activeView === "battle" ? turn.world : draft.scenario,
+  const s = activeView === "battle" ? battleWorld() : draft.scenario,
     map = $("map");
   map.replaceChildren();
   mapBounds = {
@@ -415,7 +415,7 @@ function renderMap() {
       );
   }
   if (activeView === "battle") {
-    const unit = turn.world.regiments.find(
+    const unit = battleWorld().regiments.find(
       (r) => r.id === $("order-unit").value,
     );
     const route =
@@ -479,6 +479,7 @@ function renderMap() {
     if (s.supplies.some((v) => same(v.position, cell.position)))
       overlays.append(svg("text", { x: c.x - 21, y: c.y + 10 }, "＋"));
   }
+  renderCommunications(s, overlays);
   for (const r of s.regiments) {
     const c = center(r.position),
       counts = {};
@@ -519,6 +520,7 @@ function renderMap() {
 }
 function renderInspector() {
   if (!draft || !selected) return;
+  renderRelay();
   const s = draft.scenario,
     cell = s.cells.find((c) => same(c.position, selected));
   $("selection").textContent =
@@ -1252,7 +1254,9 @@ let activeView = "workspace",
   turn = null,
   battleSide = "BLUE",
   localOrders = { BLUE: [], RED: [] },
-  lastDay = null;
+  lastDay = null,
+  playerView = null,
+  localOperations = { BLUE: null, RED: null };
 const eventNames = {
   MOVED: "移动",
   CONTACT: "接触",
@@ -1279,7 +1283,9 @@ function ordersDirty() {
     [...orders].sort((a, b) => a.regimentId.localeCompare(b.regimentId));
   return (
     JSON.stringify(sorted(localOrders[battleSide])) !==
-    JSON.stringify(sorted(batchFor(battleSide)?.orders || []))
+      JSON.stringify(sorted(batchFor(battleSide)?.orders || [])) ||
+    JSON.stringify(localOperations[battleSide]) !==
+      JSON.stringify(batchFor(battleSide)?.operation || null)
   );
 }
 function battleControls() {
@@ -1295,6 +1301,17 @@ function battleControls() {
     "doctrine-supply",
   ])
     $(id).disabled = busy || !turn || locked || !$("order-unit").value;
+  for (const id of [
+    "op-mode",
+    "op-brigade",
+    "op-theater",
+    "op-task",
+    "op-fallback",
+    "op-after",
+    "op-save",
+    "op-demo",
+  ])
+    $(id).disabled = busy || !turn || locked;
   $("submit-orders").disabled = busy || !turn || locked;
   $("commit-orders").disabled =
     busy || !batch?.submitted || locked || ordersDirty();
@@ -1302,11 +1319,17 @@ function battleControls() {
   $("export-day").disabled = busy || !lastDay;
   $("export-events").disabled = busy || !lastDay;
   $("turn-reload").disabled = busy || !battleId;
+  $("day-list").disabled = busy || $("perspective").value === "DIVISION";
 }
 async function openBattle(id) {
   battleId = id;
   turn = await api(`/games/${id}/turn`);
   const game = await api(`/games/${id}`);
+  await refreshProjection();
+  localOperations = {
+    BLUE: structuredClone(turn.blue.operation),
+    RED: structuredClone(turn.red.operation),
+  };
   localOrders = {
     BLUE: structuredClone(turn.blue.orders),
     RED: structuredClone(turn.red.orders),
@@ -1369,7 +1392,7 @@ function renderTurn() {
     $(side.toLowerCase() + "-lock").textContent =
       `${side === "BLUE" ? "蓝方" : "红方"} · ${b.committed ? "已锁定" : b.submitted ? "待确认" : "待提交"} · ${b.orders.length} 条命令`;
   }
-  const units = turn.world.regiments.filter(
+  const units = battleWorld().regiments.filter(
     (r) => r.side === battleSide && r.role !== "DIVISION_HQ",
   );
   const previous = $("order-unit").value;
@@ -1381,32 +1404,49 @@ function renderTurn() {
     units.some((r) => r.id === previous) ? previous : units[0]?.id || "",
   );
   renderRoute();
+  renderOperation();
   renderMap();
   battleControls();
 }
 function renderRoute() {
-  const unit = turn.world.regiments.find((r) => r.id === $("order-unit").value);
+  const unit = battleWorld().regiments.find(
+    (r) => r.id === $("order-unit").value,
+  );
   const order = localOrders[battleSide].find((o) => o.regimentId === unit?.id);
   const route = order?.route || [];
-  const report = turn.units.find((r) => r.id === unit?.id);
+  const report = battleReports().find((r) => r.id === unit?.id);
   $("order-unit-info").textContent = report
     ? `组织度 ${(report.organization / 10).toFixed(1)}% · ${unit.companies.length} 个正式连位`
     : "本方可提交空命令表，全体待命。";
   $("order-action").value = order?.action || "MOVE";
-  $("order-route").textContent =
-    order?.action === "BOMBARD"
-      ? order.target
-        ? `炮击目标 ${key(order.target)}`
-        : "点击地图选择炮击目标。"
-      : order?.action === "REST"
-        ? "原地休整：消耗当地补给库存恢复有效连 HP。"
-        : order?.action === "DEFEND"
-          ? "展开防御：准备接敌，保持当前位置。"
-          : route.length
-            ? `${key(unit.position)} → ${route.map(key).join(" → ")}`
-            : "原地待命。依次点击相邻地图格添加路径。";
+  $("order-route").textContent = [
+    "BOMBARD",
+    "BUILD_BRIDGE",
+    "STRIKE_RELAY",
+  ].includes(order?.action)
+    ? order.target
+      ? `行动目标 ${key(order.target)}`
+      : "点击地图选择行动目标。"
+    : order?.action === "REST"
+      ? "原地休整：消耗当地补给库存恢复有效连 HP。"
+      : order?.action === "DEFEND"
+        ? "展开防御：准备接敌，保持当前位置。"
+        : route.length
+          ? `${key(unit.position)} → ${route.map(key).join(" → ")}`
+          : "原地待命。依次点击相邻地图格添加路径。";
   $("order-route").title = $("order-route").textContent;
-  const memory = turn.memory[unit?.id],
+  const memory =
+      $("perspective").value === "DIVISION"
+        ? {
+            doctrine: order?.doctrine ||
+              turn.memory[unit?.id]?.doctrine || {
+                template: "HOLD",
+                withdrawBelowPercent: 35,
+                supplyId: "",
+              },
+            supplies: Object.values(playerView?.knowledge.supplies || {}),
+          }
+        : turn.memory[unit?.id],
     doctrine = order?.doctrine || memory?.doctrine;
   if (doctrine) {
     $("doctrine-template").value = doctrine.template;
@@ -1427,9 +1467,9 @@ function renderRoute() {
       doctrine.supplyId,
     );
     $("doctrine-knowledge").textContent =
-      `本团已知己方补给点 ${known.length} 处 · 仅邻近观察更新，库存可能过时。`;
+      `本团已知己方补给点 ${known.length} 处 · 本地观察与通信报告更新，库存可能过时。`;
   }
-  const reports = lastDay?.result.units || turn.units;
+  const reports = battleReports();
   optionList(
     $("report-unit"),
     reports.map((r) => [r.id, `${r.name}${r.destroyed ? " · 已被歼灭" : ""}`]),
@@ -1462,7 +1502,7 @@ function chooseWaypoint(point) {
     $("order-unit").value
   ) {
     const order = currentLocalOrder();
-    if (order.action === "BOMBARD") {
+    if (["BOMBARD", "BUILD_BRIDGE", "STRIKE_RELAY"].includes(order.action)) {
       order.target = point;
       renderTurn();
       return;
@@ -1473,7 +1513,7 @@ function chooseWaypoint(point) {
     }
     const from =
       order.route.at(-1) ||
-      turn.world.regiments.find((r) => r.id === order.regimentId).position;
+      battleWorld().regiments.find((r) => r.id === order.regimentId).position;
     const dq = point.q - from.q,
       dr = point.r - from.r;
     if (Math.max(Math.abs(dq), Math.abs(dr), Math.abs(dq + dr)) !== 1) {
@@ -1490,10 +1530,10 @@ function chooseWaypoint(point) {
   renderTurn();
 }
 function showDayEvents() {
-  eventRows = lastDay?.result.events || [];
+  eventRows = battleEvents();
   eventPage = 0;
   renderEvents();
-  const reports = lastDay?.result.units || turn.units;
+  const reports = battleReports();
   const selectedReport = $("report-unit").value;
   optionList(
     $("report-unit"),
@@ -1524,10 +1564,14 @@ $("turn-reload").addEventListener("click", () =>
   run(() => openBattle(battleId)),
 );
 for (const side of ["BLUE", "RED"])
-  $("side-" + side.toLowerCase()).addEventListener("click", () => {
-    battleSide = side;
-    renderTurn();
-  });
+  $("side-" + side.toLowerCase()).addEventListener("click", () =>
+    run(async () => {
+      battleSide = side;
+      await refreshProjection();
+      renderTurn();
+      showDayEvents();
+    }),
+  );
 $("order-unit").addEventListener("change", () => {
   renderRoute();
   renderMap();
@@ -1552,8 +1596,10 @@ $("submit-orders").addEventListener("click", () =>
       day: turn.day,
       expectedVersion: batchFor(side).version,
       orders: localOrders[side],
+      operation: localOperations[side],
     });
     localOrders[side] = structuredClone(batchFor(side).orders);
+    localOperations[side] = structuredClone(batchFor(side).operation);
     renderTurn();
     message("本方命令已提交，请确认并锁定。");
   }),
@@ -1658,9 +1704,7 @@ for (const id of ["doctrine-template", "doctrine-threshold", "doctrine-supply"])
   });
 function renderCombatReport() {
   if (!turn) return;
-  const report = (lastDay?.result.units || turn.units).find(
-    (r) => r.id === $("report-unit").value,
-  );
+  const report = battleReports().find((r) => r.id === $("report-unit").value);
   $("company-report").replaceChildren();
   if (!report) return;
   $("report-position").textContent =
@@ -1679,7 +1723,7 @@ function renderCombatReport() {
     tr.dataset.companyId = c.id;
     $("company-report").append(tr);
   }
-  const decision = lastDay?.result.events
+  const decision = battleEvents()
     .filter((e) => e.regimentId === report.id && e.decision)
     .at(-1)?.decision;
   $("report-doctrine").textContent = decision
@@ -1723,3 +1767,393 @@ function showEvent(e) {
 }
 controls();
 $("auth-dialog").showModal();
+
+function battleWorld() {
+  return playerView?.world || turn.world;
+}
+function battleReports() {
+  return $("perspective").value === "DIVISION"
+    ? playerView?.units || []
+    : lastDay?.result.units || turn.units;
+}
+function battleEvents() {
+  return $("perspective").value === "DIVISION"
+    ? playerView?.events || []
+    : lastDay?.result.events || [];
+}
+async function refreshProjection() {
+  playerView = await api(
+    `/games/${battleId}/view?perspective=${$("perspective").value}&side=${battleSide}`,
+  );
+}
+$("perspective").addEventListener("change", () =>
+  run(async () => {
+    await refreshProjection();
+    renderTurn();
+    showDayEvents();
+    message(
+      $("perspective").value === "DIVISION"
+        ? "师部视图：仅显示已送达报告；通信连线按最后已知位置推定。"
+        : "全知验证视图；切换观察不改变结算。",
+    );
+  }),
+);
+$("show-comms").addEventListener("change", renderMap);
+function renderCommunications(s, layer) {
+  for (const n of s.communicationNodes || []) {
+    const c = center(n.position);
+    layer.append(
+      svg(
+        "text",
+        {
+          x: c.x - 23,
+          y: c.y + 20,
+          fill: n.hp > 0 ? "#eed67c" : "#ba736a",
+          "font-size": 13,
+        },
+        `⌁${n.hp}`,
+      ),
+    );
+  }
+  if (activeView !== "battle") return;
+  if ($("show-comms").checked)
+    for (const link of playerView?.links || []) {
+      const nodes = playerView.nodes,
+        a = nodes.find((n) => n.id === link.a),
+        b = nodes.find((n) => n.id === link.b);
+      if (a.side !== battleSide) continue;
+      const p = center(a.position),
+        q = center(b.position);
+      layer.append(
+        svg("line", {
+          x1: p.x,
+          y1: p.y,
+          x2: q.x,
+          y2: q.y,
+          stroke: "#edd77d",
+          "stroke-width": 1.2,
+          "stroke-dasharray": "2 5",
+          opacity: 0.6,
+        }),
+      );
+    }
+  if ($("perspective").value === "DIVISION")
+    for (const contact of Object.values(playerView.knowledge.contacts)) {
+      if (contact.destroyed) continue;
+      const p = center(contact.unit.position);
+      layer.append(
+        svg(
+          "text",
+          { x: p.x - 15, y: p.y + 25, fill: "#edd77d", "font-size": 8 },
+          `报告 D${contact.observedDay}`,
+        ),
+      );
+    }
+}
+function renderRelay() {
+  if (!draft || !selected) return;
+  const n = (draft.scenario.communicationNodes || []).find((n) =>
+    same(n.position, selected),
+  );
+  $("relay-side").value = n?.side || "BLUE";
+  $("relay-hp").value = n?.hp ?? 100;
+  $("relay-radius").value = draft.scenario.communicationRadius || 5;
+}
+$("relay-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  run(() =>
+    save((s) => {
+      const old = (s.communicationNodes || []).find((n) =>
+        same(n.position, selected),
+      );
+      s.communicationNodes = (s.communicationNodes || []).filter(
+        (n) => !same(n.position, selected),
+      );
+      s.communicationNodes.push({
+        id: old?.id || `relay-${selected.q}-${selected.r}`,
+        position: selected,
+        side: $("relay-side").value,
+        hp: Number($("relay-hp").value),
+      });
+      s.communicationRadius = Number($("relay-radius").value);
+    }),
+  );
+});
+$("remove-relay").addEventListener("click", () =>
+  run(() =>
+    save((s) => {
+      s.communicationNodes = (s.communicationNodes || []).filter(
+        (n) => !same(n.position, selected),
+      );
+    }),
+  ),
+);
+$("preset-coordination").addEventListener("click", () =>
+  run(async () => {
+    const result = await api(
+      "/scenarios/import",
+      "POST",
+      await api("/presets/coordination"),
+    );
+    selected = null;
+    revision = null;
+    await loadDraft(result.id);
+  }),
+);
+const operationNames = {
+  WAITING_DELIVERY: "等待送达",
+  WAITING_CONFIRMATION: "等待确认",
+  EXECUTING: "执行",
+  EXECUTING_FALLBACK: "备用行动",
+  HOLD: "前置失败·等待",
+  CANCELLED: "取消",
+  COMPLETED: "完成",
+  FAILED: "失败",
+};
+Object.assign(eventNames, operationNames, {
+  BUILD_BRIDGE: "桥梁架设",
+  STRIKE_RELAY: "通信工事受损",
+  ACTION_FAILED: "行动失败",
+  REPORT_DELIVERED: "报告送达",
+});
+function renderOperation() {
+  const plan = localOperations[battleSide];
+  $("op-mode").value = plan?.mode || "NONE";
+  optionList(
+    $("op-brigade"),
+    [
+      ["", "无旅部"],
+      ...battleWorld()
+        .regiments.filter(
+          (r) => r.side === battleSide && r.role === "BRIGADE_HQ",
+        )
+        .map((r) => [r.id, r.name]),
+    ],
+    plan?.brigadeId || "",
+  );
+  const cells = plan?.theater;
+  $("op-theater").value = cells?.length
+    ? `${Math.min(...cells.map((c) => c.q))},${Math.min(...cells.map((c) => c.r))},${Math.max(...cells.map((c) => c.q))},${Math.max(...cells.map((c) => c.r))}`
+    : `0,0,${turn.world.width - 1},${turn.world.height - 1}`;
+  optionList(
+    $("op-task"),
+    localOrders[battleSide].map((o) => [
+      o.orderId,
+      `${o.regimentId} / ${o.orderId}`,
+    ]),
+    $("op-task").value,
+  );
+  renderOperationNode();
+  renderDag();
+}
+function renderOperationNode() {
+  const n = localOperations[battleSide]?.nodes.find(
+    (n) => n.orderId === $("op-task").value,
+  );
+  $("op-after").value = n?.after.join(",") || "";
+  $("op-fallback").value = n?.fallback || "HOLD";
+}
+$("op-task").addEventListener("change", renderOperationNode);
+$("op-save").addEventListener("click", () => {
+  if ($("op-mode").value === "NONE") {
+    localOperations[battleSide] = null;
+    renderTurn();
+    return;
+  }
+  const bounds = $("op-theater").value.split(",").map(Number);
+  if (
+    bounds.length !== 4 ||
+    bounds.some((n) => !Number.isInteger(n)) ||
+    bounds[0] < 0 ||
+    bounds[1] < 0 ||
+    bounds[2] >= turn.world.width ||
+    bounds[3] >= turn.world.height ||
+    bounds[0] > bounds[2] ||
+    bounds[1] > bounds[3]
+  ) {
+    message("请输入地图内的有效战区矩形。", true);
+    return;
+  }
+  const theater = [];
+  for (let q = bounds[0]; q <= bounds[2]; q++)
+    for (let r = bounds[1]; r <= bounds[3]; r++) theater.push({ q, r });
+  const old = localOperations[battleSide];
+  const nodes = localOrders[battleSide].map((o) =>
+    structuredClone(
+      old?.nodes.find((n) => n.orderId === o.orderId) || {
+        orderId: o.orderId,
+        after: [],
+        fallback: "HOLD",
+      },
+    ),
+  );
+  const node = nodes.find((n) => n.orderId === $("op-task").value);
+  if (node) {
+    node.after = $("op-after")
+      .value.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    node.fallback = $("op-fallback").value;
+  }
+  localOperations[battleSide] = {
+    id: `op-${battleSide.toLowerCase()}`,
+    brigadeId: $("op-brigade").value,
+    mode: $("op-mode").value,
+    theater,
+    nodes,
+  };
+  renderTurn();
+  message("已更新本地协作；提交时由服务端校验 DAG、旅属和战区。");
+});
+function renderDag() {
+  const dag = $("operation-dag");
+  dag.replaceChildren();
+  const plan =
+    localOperations[battleSide] ||
+    (battleSide === "BLUE"
+      ? lastDay?.manifest.blueOperation
+      : lastDay?.manifest.redOperation);
+  if (!plan) {
+    $("op-status").textContent =
+      "先为各团规划行动，再设置前置依赖。最多 16 个节点。";
+    return;
+  }
+  const nodes = plan.nodes,
+    cols = 2,
+    height = Math.max(100, Math.ceil(nodes.length / cols) * 55);
+  dag.setAttribute("viewBox", `0 0 360 ${height}`);
+  const position = (i) => ({
+    x: 5 + (i % cols) * 180,
+    y: 5 + Math.floor(i / cols) * 55,
+  });
+  for (let i = 0; i < nodes.length; i++)
+    for (const dep of nodes[i].after) {
+      const j = nodes.findIndex((n) => n.orderId === dep);
+      if (j < 0) continue;
+      const a = position(j),
+        b = position(i);
+      dag.append(
+        svg("path", {
+          d: `M${a.x + 85},${a.y + 40} L${b.x + 85},${b.y}`,
+          stroke: "#ebcf80",
+          "stroke-width": 1.5,
+          fill: "none",
+        }),
+      );
+      dag.append(
+        svg(
+          "text",
+          { x: b.x + 80, y: b.y, fill: "#ebcf80", "font-size": 10 },
+          "▼",
+        ),
+      );
+    }
+  nodes.forEach((node, i) => {
+    const p = position(i),
+      actual = lastDay?.result.operations?.find(
+        (n) => n.operationId === plan.id && n.orderId === node.orderId,
+      );
+    const observed = [...battleEvents()]
+      .reverse()
+      .find(
+        (e) =>
+          e.orderId === node.orderId &&
+          ["OrderTransition", "OperationTransition"].includes(e.category),
+      );
+    const status =
+      $("perspective").value === "DIVISION"
+        ? observed?.kind || "待报告"
+        : actual?.status || "待提交";
+    const g = svg("g", {
+      tabindex: 0,
+      role: "button",
+      "aria-label": `${node.orderId} ${status}`,
+      "data-order-id": node.orderId,
+    });
+    g.append(
+      svg("rect", {
+        x: p.x,
+        y: p.y,
+        width: 165,
+        height: 40,
+        rx: 4,
+        fill: "#172f38",
+        stroke: status === "COMPLETED" ? "#83be96" : "#c8af75",
+      }),
+    );
+    g.append(
+      svg(
+        "text",
+        { x: p.x + 7, y: p.y + 15, fill: "#e2e8db", "font-size": 11 },
+        node.orderId.length > 22
+          ? node.orderId.slice(0, 20) + "…"
+          : node.orderId,
+      ),
+    );
+    g.append(
+      svg(
+        "text",
+        { x: p.x + 7, y: p.y + 31, fill: "#ceb87e", "font-size": 10 },
+        operationNames[status] || eventNames[status] || status,
+      ),
+    );
+    g.append(
+      svg(
+        "title",
+        {},
+        `${node.orderId}\n前置：${node.after.join(",") || "无"}\n失败分支：${node.fallback}\n${$("perspective").value === "OMNISCIENT" && actual ? JSON.stringify(actual.confirmed) : observed?.reason || "等待报告"}`,
+      ),
+    );
+    const select = () => {
+      eventRows = battleEvents().filter((e) => e.orderId === node.orderId);
+      eventPage = 0;
+      renderEvents();
+      $("op-status").textContent =
+        `${node.orderId} · 前置 ${node.after.join(",") || "无"} · ${observed?.reason || "等待任务报告"}`;
+    };
+    g.addEventListener("click", select);
+    g.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") select();
+    });
+    dag.append(g);
+  });
+  $("op-status").textContent =
+    `${plan.mode === "COORDINATED" ? "旅部确认保序" : "环境相关独立调度"} · ${nodes.length} 个任务 · 点击节点查看关联记录`;
+}
+$("op-demo").addEventListener("click", () => {
+  if (!battleWorld().regiments.some((r) => r.id === "blue-engineers")) {
+    message("请在渡河协作预设中使用此任务。", true);
+    return;
+  }
+  battleSide = "BLUE";
+  localOrders.BLUE = [
+    {
+      orderId: "bridge",
+      regimentId: "blue-engineers",
+      action: "BUILD_BRIDGE",
+      target: { q: 3, r: 0 },
+      route: [],
+    },
+    {
+      orderId: "cross",
+      regimentId: "blue-armor",
+      action: "MOVE",
+      target: null,
+      route: [
+        { q: 3, r: 0 },
+        { q: 4, r: 0 },
+      ],
+    },
+  ];
+  localOperations.BLUE = {
+    id: "river-operation",
+    brigadeId: "blue-brigade",
+    mode: "COORDINATED",
+    theater: turn.world.cells.map((c) => c.position),
+    nodes: [
+      { orderId: "bridge", after: [], fallback: "HOLD" },
+      { orderId: "cross", after: ["bridge"], fallback: "HOLD" },
+    ],
+  };
+  renderTurn();
+});

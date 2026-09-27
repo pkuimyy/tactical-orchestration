@@ -31,10 +31,14 @@ public final class BattleRuntime {
   final Set<String> lastEngaged = new TreeSet<>();
   private final Set<String> prepared = new HashSet<>();
   private final Scenario input;
+  Map<String, IntelligenceState.Knowledge> priorKnowledge = Map.of();
   private final Map<String, MovementOrder> orders = new TreeMap<>();
   private final List<DaySimulation.Event> events;
   private final Map<String, Supply> supplies = new TreeMap<>();
   private final int day, departure;
+  private final List<Edge> edges;
+  private final List<CommunicationNode> relays;
+  final Map<String, IntelligenceState.Knowledge> observations = new TreeMap<>();
 
   BattleRuntime(
       Scenario input,
@@ -45,6 +49,8 @@ public final class BattleRuntime {
       int day,
       int departure) {
     this.input = input;
+    this.edges = new ArrayList<>(input.edges());
+    this.relays = new ArrayList<>(input.communicationNodes());
     this.positions = positions;
     this.events = events;
     this.day = day;
@@ -62,6 +68,17 @@ public final class BattleRuntime {
           || command.action() == Action.DEFEND
           || command.action() == Action.MOVE && command.route().isEmpty()) prepared.add(r.id());
     }
+  }
+
+  void activate(MovementOrder command) {
+    orders.put(command.regimentId(), command);
+    if (command.doctrine() != null) {
+      var old = memory.get(command.regimentId());
+      memory.put(command.regimentId(), new RegimentMemory(command.doctrine(), old.supplies()));
+    }
+    if (command.action() != Action.DEFEND
+        && !(command.action() == Action.MOVE && command.route().isEmpty()))
+      prepared.remove(command.regimentId());
   }
 
   boolean alive(String id) {
@@ -93,9 +110,66 @@ public final class BattleRuntime {
             input.width(),
             input.height(),
             input.cells(),
-            input.edges(),
+            edges,
             units.keySet().stream().filter(this::alive).map(this::regiment).toList(),
-            new ArrayList<>(supplies.values())));
+            new ArrayList<>(supplies.values()),
+            relays,
+            input.communicationRadius()));
+  }
+
+  private int observedEvents;
+
+  void observeAll() {
+    var current = world();
+    for (var r : current.regiments()) {
+      var prior = observations.getOrDefault(r.id(), IntelligenceState.Knowledge.empty());
+      observations.put(
+          r.id(),
+          prior.merge(
+              IntelligenceState.observe(
+                  current, r, day, prior, events.subList(observedEvents, events.size()))));
+    }
+    observedEvents = events.size();
+  }
+
+  boolean infrastructure(MovementOrder order) {
+    if (!alive(order.regimentId())) return false;
+    var r = regiment(order.regimentId());
+    if (order.action() == Action.BUILD_BRIDGE) {
+      if (r.companies().stream().noneMatch(c -> c.hp() > 0 && c.type() == CompanyType.ENGINEER))
+        return false;
+      for (int i = 0; i < edges.size(); i++) {
+        var e = edges.get(i);
+        if (e.river()
+            && (e.a().equals(order.target()) || e.b().equals(order.target()))
+            && r.position().distance(e.a()) <= 1
+            && r.position().distance(e.b()) <= 1) {
+          edges.set(i, new Edge(e.a(), e.b(), true, Bridge.INTACT, e.road()));
+          return true;
+        }
+      }
+    } else {
+      int range =
+          r.companies().stream().anyMatch(c -> c.hp() > 0 && c.type() == CompanyType.ARTILLERY)
+              ? 3
+              : 1;
+      if (r.position().distance(order.target()) > range) return false;
+      for (int i = 0; i < relays.size(); i++) {
+        var n = relays.get(i);
+        if (n.side() != r.side() && n.position().equals(order.target()) && n.hp() > 0) {
+          int damage =
+              r.companies().stream()
+                  .filter(c -> c.hp() > 0)
+                  .mapToInt(c -> Math.max(1, CombatRules.profile(c).soft() * c.hp() / c.maxHp()))
+                  .sum();
+          relays.set(
+              i,
+              new CommunicationNode(n.id(), n.position(), n.side(), Math.max(0, n.hp() - damage)));
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   void fight(Set<Pair> contacts, List<MovementOrder> bombardments, int tick) {
@@ -314,10 +388,20 @@ public final class BattleRuntime {
         (other, p) -> {
           if (!other.equals(id) && p.distance(self.position()) <= 1) observed.add(p);
         });
+    var known =
+        priorKnowledge
+            .getOrDefault(id, IntelligenceState.Knowledge.empty())
+            .merge(observations.getOrDefault(id, IntelligenceState.Knowledge.empty()))
+            .merge(
+                IntelligenceState.observe(
+                    world(), self, day, IntelligenceState.Knowledge.empty(), List.of()));
     var decision =
         DoctrinePlanner.decide(
             new DoctrinePlanner.TerrainMap(
-                input.width(), input.height(), input.cells(), input.edges()),
+                input.width(),
+                input.height(),
+                input.cells(),
+                known.edges().values().stream().map(IntelligenceState.KnownEdge::edge).toList()),
             self,
             memory.get(id),
             observed,

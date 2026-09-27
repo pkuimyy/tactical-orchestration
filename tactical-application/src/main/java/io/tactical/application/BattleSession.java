@@ -8,7 +8,11 @@ import java.util.*;
 /** Access is serialized by ScenarioService. Persisted inputs/results are immutable. */
 public final class BattleSession {
   public record Batch(
-      long version, boolean submitted, boolean committed, List<MovementOrder> orders) {
+      long version,
+      boolean submitted,
+      boolean committed,
+      List<MovementOrder> orders,
+      OperationPlan operation) {
     public Batch {
       orders = List.copyOf(orders);
     }
@@ -35,7 +39,10 @@ public final class BattleSession {
       String inputHash,
       List<MovementOrder> blue,
       List<MovementOrder> red,
-      Map<String, RegimentMemory> memory) {
+      Map<String, RegimentMemory> memory,
+      OperationPlan blueOperation,
+      OperationPlan redOperation,
+      IntelligenceState intelligence) {
     public Manifest {
       blue = List.copyOf(blue);
       red = List.copyOf(red);
@@ -51,6 +58,7 @@ public final class BattleSession {
   private Scenario world;
   private Map<String, RegimentMemory> memory;
   private int completedDays;
+  private IntelligenceState intelligence;
   private final Map<Side, Batch> batches = new EnumMap<>(Side.class);
   private final Map<Integer, Day> history = new TreeMap<>();
 
@@ -58,6 +66,7 @@ public final class BattleSession {
     if (iterations < 1 || iterations > 8) throw new ScenarioViolation("事件迭代上限为 1–8");
     this.world = world;
     this.memory = RegimentMemory.initial(world);
+    this.intelligence = IntelligenceState.initial(world);
     this.seed = seed;
     this.iterations = iterations;
     initialHash = ScenarioHash.sha256(world);
@@ -79,18 +88,29 @@ public final class BattleSession {
   }
 
   public View submit(int day, Side side, long expectedVersion, List<MovementOrder> orders) {
+    return submit(day, side, expectedVersion, orders, null);
+  }
+
+  public View submit(
+      int day,
+      Side side,
+      long expectedVersion,
+      List<MovementOrder> orders,
+      OperationPlan operation) {
     current(day);
     if (side == null) throw new ScenarioViolation("必须指定阵营");
     var normalized = DaySimulation.validate(world, side, orders);
+    if (operation != null) operation.validate(world, side, normalized);
     Batch old = batches.get(side);
     // Identical retry after response loss is safe; it cannot overwrite another submission.
     if (old.submitted()
         && old.orders().equals(normalized)
+        && Objects.equals(old.operation(), operation)
         && (expectedVersion == old.version() || expectedVersion == old.version() - 1))
       return view();
     if (old.committed()) throw conflict("该方命令已锁定");
     if (old.version() != expectedVersion) throw conflict("命令已更新，请重新载入");
-    batches.put(side, new Batch(old.version() + 1, true, false, normalized));
+    batches.put(side, new Batch(old.version() + 1, true, false, normalized, operation));
     return view();
   }
 
@@ -99,7 +119,7 @@ public final class BattleSession {
     if (side == null) throw new ScenarioViolation("必须指定阵营");
     Batch old = batches.get(side);
     if (!old.submitted() || old.version() != expectedVersion) throw conflict("请先提交并确认当前版本命令");
-    batches.put(side, new Batch(old.version(), true, true, old.orders()));
+    batches.put(side, new Batch(old.version(), true, true, old.orders(), old.operation()));
     return view();
   }
 
@@ -119,18 +139,91 @@ public final class BattleSession {
             seed,
             day,
             iterations,
-            DaySimulation.stateHash(completedDays, world, memory),
+            DaySimulation.stateHash(completedDays, world, memory, intelligence),
             blue,
             red,
-            memory);
-    var result = new DaySimulation().resolve(world, day, seed, iterations, blue, red, memory);
+            memory,
+            batches.get(Side.BLUE).operation(),
+            batches.get(Side.RED).operation(),
+            intelligence);
+    var result =
+        new DaySimulation()
+            .resolve(
+                world,
+                day,
+                seed,
+                iterations,
+                blue,
+                red,
+                memory,
+                manifest.blueOperation(),
+                manifest.redOperation(),
+                intelligence);
     var record = new Day(manifest, result);
     history.put(day, record);
     world = result.world();
     memory = result.memory();
+    intelligence = result.intelligence();
     completedDays = day;
     reset();
     return record;
+  }
+
+  public enum Perspective {
+    DIVISION,
+    OMNISCIENT
+  }
+
+  public record PlayerView(
+      int day,
+      Perspective perspective,
+      Side side,
+      Scenario world,
+      IntelligenceState.Knowledge knowledge,
+      List<CommunicationNetwork.Node> nodes,
+      List<CommunicationNetwork.Link> links,
+      List<DaySimulation.UnitReport> units,
+      List<DaySimulation.Event> events,
+      int pendingReports) {}
+
+  public PlayerView projection(Perspective perspective, Side side) {
+    if (perspective == null || side == null) throw new ScenarioViolation("需要观察视角与阵营");
+    var knowledge = intelligence.divisions().get(side);
+    Scenario projected = world;
+    List<DaySimulation.Event> events =
+        completedDays == 0 ? List.of() : history.get(completedDays).result().events();
+    if (perspective == Perspective.DIVISION) {
+      projected =
+          new Scenario(
+              world.schemaVersion(),
+              world.name(),
+              world.width(),
+              world.height(),
+              world.cells(),
+              knowledge.edges().values().stream().map(IntelligenceState.KnownEdge::edge).toList(),
+              knowledge.contacts().values().stream()
+                  .filter(c -> !c.destroyed())
+                  .map(IntelligenceState.Contact::unit)
+                  .toList(),
+              knowledge.supplies().values().stream()
+                  .map(s -> new Scenario.Supply(s.id(), s.position(), s.side(), s.stock()))
+                  .toList(),
+              knowledge.relays().values().stream().map(IntelligenceState.KnownRelay::node).toList(),
+              world.communicationRadius());
+      events = knowledge.events();
+    }
+    var network = new CommunicationNetwork(projected);
+    return new PlayerView(
+        completedDays + 1,
+        perspective,
+        side,
+        projected,
+        knowledge,
+        network.nodes(),
+        network.links(),
+        DaySimulation.reports(projected, projected),
+        events,
+        perspective == Perspective.OMNISCIENT ? intelligence.pending().size() : -1);
   }
 
   public Day day(int day) {
@@ -145,7 +238,7 @@ public final class BattleSession {
   }
 
   private void reset() {
-    for (var side : Side.values()) batches.put(side, new Batch(0, false, false, List.of()));
+    for (var side : Side.values()) batches.put(side, new Batch(0, false, false, List.of(), null));
   }
 
   private static StoreProblem conflict(String message) {

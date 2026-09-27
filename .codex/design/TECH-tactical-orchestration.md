@@ -349,3 +349,13 @@ HTTP 请求写入应支持幂等键／稳定命令 ID；回合提交、结算和
   当前追击／混编防线摘要分别保存于 m3-recon-expected.json、m3-combat-expected.json。
 
 可执行参数、局部知识假设、哈希覆盖范围与复现流程见 `docs/m3-combat.md`。
+
+
+## M4 实施记录（2026-09-27）
+
+- `OperationPlan` 是纯 Java 的单旅／战区有向无环计划，绑定同批团级命令版本；`OperationRuntime` 分离送达、物理结果和各节点确认。默认双通信连旅部提供合法结果转发，本地目击可确认；独立对照按 seed/day/团/地形派生调度延迟。
+- `CommunicationNetwork` 区分中继与收发终端；通信连和存活工事中继，半径默认 5。`BUILD_BRIDGE`／`STRIKE_RELAY` 占用整数日内时间，实际格边与节点变化纳入运行场景。
+- `IntelligenceState` 的 regiments／brigades／divisions 分别承载对应知识层级，报告队列与世界事实分开。日期加日内时间用于合并观察；N 日结算包含进入 N+1 的送达和共享边界，事件明确标为 N+1。失联数据不进入师部投影。
+- `BattleSession.PlayerView` 由服务端按已知快照构建，不将失联部队的当前 HP／位置补回师部视图；通信线按已知快照推定。投影 GET 无副作用，完整 turn／day 接口仍供全知实验调试，不是多人权限隔离接口。
+- `Manifest` 记录双方计划、完整输入记忆／知识／待送达队列；运行 hash 包含知识状态，次日 inputHash 与上日 stateHash 一致。旧场景缺省通信字段仍可导入，canonical-v1 在非默认通信配置时追加 communication-v1 段；生成 OpenAPI 继续不入库。
+- Web 使用原生表单与 SVG，新增协作标签、通信设施编辑和师部／全知切换；没有增加产品 Node 依赖。测试与限制见 `docs/m4-coordination.md`。

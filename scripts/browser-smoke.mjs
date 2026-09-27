@@ -632,10 +632,127 @@ try {
       .find((r) => r.id === "guns")
       .companies.every((c) => c.hp === c.beforeHp),
   );
+  // M4: native operation form, DAG, report projection and relay editor.
+  await page.locator("#workspace-tab").click();
+  await page.locator("#preset-coordination").click();
+  await page.waitForFunction(() =>
+    document.getElementById("draft-meta").textContent.includes("河桥协作"),
+  );
+  await selectCell(4, 2);
+  await page.locator('[data-tab="relay-panel"]').click();
+  assert.equal(await page.locator("#relay-hp").inputValue(), "30");
+  await page.locator("#relay-hp").fill("31");
+  await page.locator("#relay-form button").first().click();
+  await page.waitForFunction(() =>
+    document.getElementById("draft-meta").textContent.includes("v2"),
+  );
+  const river = await http("/presets/coordination");
+  const riverDraft = await http("/scenarios/import", "POST", river);
+  const riverRevision = await http(
+    `/scenarios/${riverDraft.id}/revisions`,
+    "POST",
+    { expectedVersion: 1 },
+  );
+  const riverGame = await http("/games", "POST", {
+    revisionId: riverRevision.id,
+    seed: 42,
+  });
+  await page.evaluate(
+    (id) => localStorage.setItem("tactical-game-id", id),
+    riverGame.id,
+  );
+  await page.reload();
+  await page.locator("#token").fill(token);
+  await page.locator("#auth-form button").first().click();
+  await page.waitForFunction(() =>
+    document.getElementById("connection").textContent.includes("已连接"),
+  );
+  await page.locator("#battle-tab").click();
+  await page.waitForFunction(() =>
+    document.getElementById("battle-name").textContent.includes("河桥协作"),
+  );
+  await page.locator("#side-blue").click();
+  await page.locator('[data-turn-tab="operation-page"]').click();
+  await page.locator("#op-demo").click();
+  assert.equal(await page.locator("#operation-dag [data-order-id]").count(), 2);
+  await page.locator("#op-task").selectOption("cross");
+  assert.equal(await page.locator("#op-after").inputValue(), "bridge");
+  await page.locator("#op-save").click();
+  await clickAndStatus("#submit-orders", "命令已提交");
+  await clickAndStatus("#commit-orders", "命令已锁定");
+  await page.locator("#side-red").click();
+  await clickAndStatus("#submit-orders", "命令已提交");
+  await clickAndStatus("#commit-orders", "命令已锁定");
+  await clickAndStatus("#resolve-day", "第 1 天结算完成");
+  await page.locator("#side-blue").click();
+  const riverResult = await http(`/games/${riverGame.id}/days/1`);
+  assert.equal(
+    riverResult.result.operations.find((n) => n.orderId === "cross").status,
+    "COMPLETED",
+  );
+  for (const perspective of ["DIVISION", "OMNISCIENT"]) {
+    await page.locator("#perspective").selectOption(perspective);
+    await page.waitForFunction(
+      (p) =>
+        document
+          .getElementById("status")
+          .textContent.includes(p === "DIVISION" ? "师部视图" : "全知验证视图"),
+      perspective,
+    );
+    if (perspective === "DIVISION")
+      assert.ok(
+        !(await page.locator("#report-unit").textContent()).includes("red-hq"),
+      );
+    for (const size of [
+      { width: 1980, height: 1080 },
+      { width: 1920, height: 1080 },
+      { width: 1980, height: 960 },
+    ]) {
+      await page.setViewportSize(size);
+      for (const tab of [
+        "operation-page",
+        "action-page",
+        "doctrine-page",
+        "report-page",
+      ]) {
+        await page.locator(`[data-turn-tab="${tab}"]`).click();
+        const overflow = await page.evaluate(() =>
+          [
+            "html",
+            "body",
+            ".game-board",
+            "#turn-panel",
+            ".turn-page:not([hidden])",
+            "#battle-bar",
+          ].filter((s) => {
+            const e = document.querySelector(s);
+            return (
+              e.scrollHeight > e.clientHeight + 2 ||
+              e.scrollWidth > e.clientWidth + 2
+            );
+          }),
+        );
+        assert.deepEqual(
+          overflow,
+          [],
+          `M4 ${perspective} ${size.width}x${size.height} ${tab}`,
+        );
+      }
+    }
+    assert.deepEqual(await http(`/games/${riverGame.id}/days/1`), riverResult);
+  }
+  await page.locator('[data-turn-tab="operation-page"]').click();
+  await page.locator('#operation-dag [data-order-id="cross"]').click();
+  assert.ok(
+    (await page.locator("#op-status").textContent()).includes("bridge"),
+  );
+  await page.screenshot({
+    path: join(root, "tactical-server/target/m4-coordination.png"),
+  });
   assert.deepEqual(errors, []);
   assert.ok(!log.includes(token));
   console.log(
-    "PASS: browser blank map → HQ/engineer/armor/supply/edge/HP editing → freeze → two games → isolation → validation error → refresh → export/import hash equivalence; single-screen 1980×1080 / 1920×1080 / 1980×960, six-company paging, M1.2 management; M2 both-side orders, lock/resolve, HTTP replay equality, JSONL and manifest export; M3 combat/known-only retreat, six-company reports, rest/stock and bombardment, no page errors",
+    "PASS: browser blank map → HQ/engineer/armor/supply/edge/HP editing → freeze → two games → isolation → validation error → refresh → export/import hash equivalence; single-screen 1980×1080 / 1920×1080 / 1980×960, six-company paging, M1.2 management; M2 both-side orders, lock/resolve, HTTP replay equality, JSONL and manifest export; M3 combat/known-only retreat, six-company reports, rest/stock and bombardment; M4 relay editing, operation form/DAG, confirmed crossing, both projections, three viewport sizes and unchanged replay, no page errors",
   );
 } finally {
   await browser?.close();

@@ -13,7 +13,7 @@
         <span class="brand-mark">策</span>
         <div>
           <h1>战术编排</h1>
-          <span class="eyebrow">TACTICAL ORCHESTRATION · M3</span>
+          <span class="eyebrow">TACTICAL ORCHESTRATION · M4</span>
         </div>
       </div>
       <nav class="header-tabs" aria-label="主导航">
@@ -39,6 +39,8 @@
       ><button id="new-scenario" class="secondary" data-auth>新建战场</button
       ><button id="preset" data-auth>河谷突破</button
       ><button id="preset-recon" class="secondary" data-auth>追击验证</button
+      ><button id="preset-coordination" class="secondary" data-auth>
+        渡河协作</button
       ><button id="preset-combat" class="secondary" data-auth>混编防线</button
       ><button id="reload" class="secondary" data-auth>重新载入</button
       ><button id="export" class="secondary" data-draft>导出</button
@@ -53,7 +55,13 @@
     <nav id="battle-bar" class="scenario-bar" hidden aria-label="推演操作">
       <strong id="battle-name">尚未选择实验</strong
       ><span id="battle-meta" class="force-summary"></span>
-      <button id="turn-reload" class="secondary">重新载入命令</button>
+      <label
+        >观察<select id="perspective">
+          <option value="OMNISCIENT">全知验证</option>
+          <option value="DIVISION">本方师部</option>
+        </select></label
+      ><label><input id="show-comms" type="checkbox" checked />通信</label
+      ><button id="turn-reload" class="secondary">重新载入命令</button>
       <label
         >结算记录<select id="day-list">
           <option value="">尚无结算</option>
@@ -112,7 +120,53 @@
           ><button data-tab="supply-panel" role="tab" aria-selected="false">
             补给设施
           </button>
+          <button data-tab="relay-panel" role="tab" aria-selected="false">
+            通信
+          </button>
         </nav>
+        <section id="relay-panel" class="inspector-page" role="tabpanel" hidden>
+          <h3>通信工事</h3>
+          <form id="relay-form">
+            <label
+              >阵营<select id="relay-side">
+                <option>BLUE</option>
+                <option>RED</option>
+              </select></label
+            >
+            <label
+              >设施 HP<input
+                id="relay-hp"
+                type="number"
+                min="0"
+                max="1000"
+                value="100"
+                required
+            /></label>
+            <label
+              >全场通信半径<input
+                id="relay-radius"
+                type="number"
+                min="1"
+                max="8"
+                value="5"
+                required
+            /></label>
+            <div class="toolbar">
+              <button data-cell>保存通信工事</button
+              ><button
+                id="remove-relay"
+                type="button"
+                class="secondary"
+                data-cell
+              >
+                移除
+              </button>
+            </div>
+          </form>
+          <p class="hint">
+            通信连与存活工事中继信号；普通团只收发。工事只有 HP，归零即断开。
+          </p>
+        </section>
         <section id="terrain-panel" class="inspector-page" role="tabpanel">
           <h3>地形与工事</h3>
           <form id="cell-form">
@@ -273,7 +327,52 @@
           ><button data-turn-tab="report-page" aria-pressed="false">
             战况
           </button>
+          <button data-turn-tab="operation-page" aria-pressed="false">
+            协作
+          </button>
         </nav>
+        <section id="operation-page" class="turn-page" hidden>
+          <div class="op-grid">
+            <label
+              >调度<select id="op-mode">
+                <option value="NONE">独立团级命令</option>
+                <option value="COORDINATED">旅部协作</option>
+                <option value="INDEPENDENT">无旅部调度对照</option>
+              </select></label
+            ><label>旅部<select id="op-brigade"></select></label>
+          </div>
+          <label
+            >战区矩形 q最小,r最小,q最大,r最大<input
+              id="op-theater"
+              placeholder="0,0,7,3"
+          /></label>
+          <div class="op-grid">
+            <label>任务<select id="op-task"></select></label
+            ><label
+              >前置失败<select id="op-fallback">
+                <option value="HOLD">原地等待</option>
+                <option value="CANCEL">取消任务</option>
+                <option value="CONTINUE">继续备用行动</option>
+              </select></label
+            >
+          </div>
+          <label
+            >前置命令 ID（逗号分隔）<input
+              id="op-after"
+              placeholder="留空表示无前置"
+          /></label>
+          <div class="toolbar">
+            <button id="op-save" class="secondary">更新协作</button
+            ><button id="op-demo" class="secondary">载入渡河任务</button>
+          </div>
+          <svg
+            id="operation-dag"
+            viewBox="0 0 360 170"
+            role="img"
+            aria-label="任务依赖 DAG"
+          ></svg>
+          <p id="op-status" class="hint"></p>
+        </section>
         <section id="action-page" class="turn-page">
           <label
             >行动<select id="order-action">
@@ -281,6 +380,8 @@
               <option value="DEFEND">展开防御</option>
               <option value="BOMBARD">远距炮击</option>
               <option value="REST">原地休整</option>
+              <option value="BUILD_BRIDGE">架设桥梁</option>
+              <option value="STRIKE_RELAY">攻击通信工事</option>
             </select></label
           >
           <div class="route-box">

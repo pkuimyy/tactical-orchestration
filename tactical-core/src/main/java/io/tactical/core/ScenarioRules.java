@@ -125,6 +125,18 @@ public final class ScenarioRules {
       check(supply.side() != null, "补给点必须指定阵营");
       check(supply.stock() >= 0 && supply.stock() <= 1000000, "补给库存必须在 0–1000000 之间");
     }
+    check(s.communicationRadius() >= 1 && s.communicationRadius() <= 8, "通信半径必须在 1–8 之间");
+    check(s.communicationNodes().size() <= 32, "通信工事最多 32 个");
+    var nodeIds = new HashSet<String>();
+    var nodePositions = new HashSet<HexCoord>();
+    for (var node : s.communicationNodes()) {
+      id(node.id());
+      coordinate(node.position(), s);
+      check(
+          nodeIds.add(node.id()) && !ids.contains(node.id()) && nodePositions.add(node.position()),
+          "通信工事 ID 或位置重复");
+      check(node.side() != null && node.hp() >= 0 && node.hp() <= 1000, "通信工事需要阵营及 0–1000 HP");
+    }
     return new Scenario(
         s.schemaVersion(),
         s.name(),
@@ -133,7 +145,11 @@ public final class ScenarioRules {
         s.cells().stream().sorted(Comparator.comparing(Cell::position)).toList(),
         edges.stream().sorted(Comparator.comparing(Edge::a).thenComparing(Edge::b)).toList(),
         regiments.stream().sorted(Comparator.comparing(Regiment::id)).toList(),
-        s.supplies().stream().sorted(Comparator.comparing(Supply::id)).toList());
+        s.supplies().stream().sorted(Comparator.comparing(Supply::id)).toList(),
+        s.communicationNodes().stream()
+            .sorted(Comparator.comparing(CommunicationNode::id))
+            .toList(),
+        s.communicationRadius());
   }
 
   public static void requirePlayable(Scenario s) {

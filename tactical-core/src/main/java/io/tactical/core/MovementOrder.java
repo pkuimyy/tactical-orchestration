@@ -14,7 +14,9 @@ public record MovementOrder(
     MOVE,
     DEFEND,
     BOMBARD,
-    REST
+    REST,
+    BUILD_BRIDGE,
+    STRIKE_RELAY
   }
 
   public MovementOrder(String orderId, String regimentId, List<HexCoord> route) {
@@ -35,6 +37,7 @@ public record MovementOrder(
     action = action == null ? Action.MOVE : action;
     if (action != Action.MOVE && !route.isEmpty())
       throw new ScenarioViolation("防御、炮击与休整命令不能同时携带行军路径");
-    if ((action == Action.BOMBARD) != (target != null)) throw new ScenarioViolation("仅炮击命令必须指定目标格");
+    if ((action == Action.BOMBARD || action == Action.BUILD_BRIDGE || action == Action.STRIKE_RELAY)
+        != (target != null)) throw new ScenarioViolation("炮击、架桥和通信工事攻击必须指定目标格");
   }
 }

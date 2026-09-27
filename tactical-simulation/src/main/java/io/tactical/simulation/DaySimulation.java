@@ -43,11 +43,14 @@ public final class DaySimulation {
       String stateHash,
       List<Event> events,
       Map<String, RegimentMemory> memory,
-      List<UnitReport> units) {
+      List<UnitReport> units,
+      IntelligenceState intelligence,
+      List<OperationRuntime.State> operations) {
     public Result {
       events = List.copyOf(events);
       memory = Collections.unmodifiableMap(new TreeMap<>(memory));
       units = List.copyOf(units);
+      operations = List.copyOf(operations);
     }
   }
 
@@ -119,7 +122,9 @@ public final class DaySimulation {
     List<HexCoord> route;
     boolean withdrawing;
     int step, arrival, speed;
-    boolean stopped;
+    boolean stopped, pending;
+    String waitState = "";
+    OperationRuntime operation;
 
     Task(MovementOrder order, Regiment regiment) {
       this.order = order;
@@ -128,9 +133,9 @@ public final class DaySimulation {
     }
 
     HexCoord target() {
-      return order.action() == MovementOrder.Action.BOMBARD && !withdrawing
+      return order.target() != null && !withdrawing
           ? order.target()
-          : route.get(step);
+          : step < route.size() ? route.get(step) : regiment.position();
     }
   }
 
@@ -160,6 +165,35 @@ public final class DaySimulation {
             || r.companies().stream()
                 .noneMatch(c -> c.hp() > 0 && c.type() == CompanyType.ARTILLERY))
           throw new ScenarioViolation("炮击需要有效炮兵连及 1–3 格内的目标");
+      }
+      if (o.action() == MovementOrder.Action.BUILD_BRIDGE
+          || o.action() == MovementOrder.Action.STRIKE_RELAY) {
+        var target = o.target();
+        if (target.q() < 0
+            || target.r() < 0
+            || target.q() >= world.width()
+            || target.r() >= world.height()) throw new ScenarioViolation("设施目标超出地图");
+        if (o.action() == MovementOrder.Action.BUILD_BRIDGE
+            && (r.position().distance(target) != 1
+                || r.companies().stream()
+                    .noneMatch(c -> c.hp() > 0 && c.type() == CompanyType.ENGINEER)
+                || world.edges().stream()
+                    .noneMatch(
+                        e ->
+                            e.river()
+                                && (e.a().equals(target) || e.b().equals(target))
+                                && r.position().distance(e.a()) <= 1
+                                && r.position().distance(e.b()) <= 1)))
+          throw new ScenarioViolation("架桥需要工兵及本团相邻河流边");
+        if (o.action() == MovementOrder.Action.STRIKE_RELAY
+            && (r.position().distance(target)
+                    > (r.companies().stream()
+                            .anyMatch(c -> c.hp() > 0 && c.type() == CompanyType.ARTILLERY)
+                        ? 3
+                        : 1)
+                || world.communicationNodes().stream()
+                    .noneMatch(n -> n.side() != side && n.position().equals(target))))
+          throw new ScenarioViolation("目标必须为射程内敌方通信工事");
       }
       var from = r.position();
       for (var to : o.route()) {
@@ -192,6 +226,39 @@ public final class DaySimulation {
       List<MovementOrder> blue,
       List<MovementOrder> red,
       Map<String, RegimentMemory> memory) {
+    return resolve(
+        input,
+        day,
+        seed,
+        maxIterations,
+        blue,
+        red,
+        memory,
+        null,
+        null,
+        IntelligenceState.initial(input));
+  }
+
+  public Result resolve(
+      Scenario input,
+      int day,
+      long seed,
+      int maxIterations,
+      List<MovementOrder> blue,
+      List<MovementOrder> red,
+      Map<String, RegimentMemory> memory,
+      OperationPlan blueOperation,
+      OperationPlan redOperation,
+      IntelligenceState intelligence) {
+    var operations = new ArrayList<OperationRuntime>();
+    if (blueOperation != null) {
+      blueOperation.validate(input, Side.BLUE, blue);
+      operations.add(new OperationRuntime(blueOperation, blue));
+    }
+    if (redOperation != null) {
+      redOperation.validate(input, Side.RED, red);
+      operations.add(new OperationRuntime(redOperation, red));
+    }
     if (day < 1 || maxIterations < 1 || maxIterations > 8)
       throw new ScenarioViolation("天数须为正数，事件迭代上限为 1–8");
     var commands = new ArrayList<>(validate(input, Side.BLUE, blue));
@@ -203,7 +270,19 @@ public final class DaySimulation {
     // Common environmental departure delay cannot reverse any relative movement advantage.
     int departure = Integer.parseInt(key(seed, day, "environment").substring(0, 2), 16) % 4;
     int deadline = departure + maxIterations * 15;
-    var battle = new BattleRuntime(input, positions, memory, commands, events, day, departure);
+    var battle =
+        new BattleRuntime(
+            input,
+            positions,
+            memory,
+            commands.stream()
+                .filter(o -> operations.stream().noneMatch(op -> op.contains(o.regimentId())))
+                .toList(),
+            events,
+            day,
+            departure);
+    battle.priorKnowledge = intelligence.regiments();
+    battle.observeAll();
     for (var o : commands) {
       var r =
           input.regiments().stream()
@@ -212,6 +291,14 @@ public final class DaySimulation {
               .orElseThrow();
       var t = new Task(o, r);
       tasks.add(t);
+      t.operation = operations.stream().filter(op -> op.contains(r.id())).findFirst().orElse(null);
+      if (t.operation != null) {
+        t.pending = true;
+        t.arrival = departure + t.operation.delay(input, seed, day, r.id());
+        // Delivery is attempted immediately, independent of prerequisite completion.
+        t.operation.ready(input, r.id());
+        continue;
+      }
       emit(
           events,
           day,
@@ -224,7 +311,7 @@ public final class DaySimulation {
           positions.get(r.id()),
           List.of(r.id()),
           "双方命令已锁定");
-      if (o.action() == MovementOrder.Action.BOMBARD) t.arrival = departure + 15;
+      if (o.target() != null) t.arrival = departure + 15;
       else schedule(input, positions, t, departure, day, 0, events);
     }
     for (int iteration = 1; iteration <= maxIterations; iteration++) {
@@ -237,9 +324,50 @@ public final class DaySimulation {
                 .min()
                 .orElse(Integer.MAX_VALUE);
         if (tick > horizon) break;
+        var currentWorld = battle.world();
+        for (var op : operations) op.outcomes(currentWorld, events);
+        for (var t : tasks)
+          if (!t.stopped && t.pending && t.arrival == tick) {
+            String status = t.operation.ready(currentWorld, t.regiment.id());
+            if (!status.equals(t.waitState)) {
+              emit(
+                  events,
+                  day,
+                  iteration,
+                  tick,
+                  t,
+                  "OperationTransition",
+                  status,
+                  positions.get(t.regiment.id()),
+                  t.target(),
+                  List.of(t.regiment.id()),
+                  t.operation.reason(t.regiment.id()));
+              t.waitState = status;
+            }
+            if (status.equals("CANCELLED") || status.equals("HOLD")) {
+              t.stopped = true;
+              emit(
+                  events,
+                  day,
+                  iteration,
+                  tick,
+                  t,
+                  "OrderTransition",
+                  "CANCELLED",
+                  positions.get(t.regiment.id()),
+                  t.target(),
+                  List.of(t.regiment.id()),
+                  "前置失败分支：" + status);
+            } else if (status.startsWith("EXECUTING")) {
+              t.pending = false;
+              battle.activate(t.order);
+              if (t.order.target() != null) t.arrival = tick + 15;
+              else schedule(currentWorld, positions, t, tick, day, iteration, events);
+            } else t.arrival = tick + 1;
+          }
         List<Task> allDue =
             tasks.stream()
-                .filter(t -> !t.stopped && t.arrival == tick)
+                .filter(t -> !t.stopped && !t.pending && t.arrival == tick)
                 .sorted(
                     Comparator.comparing(
                         t -> key(seed, day, "schedule:" + tick + ":" + t.regiment.id())))
@@ -248,7 +376,45 @@ public final class DaySimulation {
             allDue.stream()
                 .filter(t -> t.order.action() == MovementOrder.Action.BOMBARD && !t.withdrawing)
                 .toList();
-        var due = allDue.stream().filter(t -> !bombs.contains(t)).toList();
+        var infrastructure =
+            allDue.stream()
+                .filter(
+                    t ->
+                        !t.withdrawing
+                            && (t.order.action() == MovementOrder.Action.BUILD_BRIDGE
+                                || t.order.action() == MovementOrder.Action.STRIKE_RELAY))
+                .toList();
+        // Equal-time movement intents were scheduled against the pre-action world.
+        for (var t : infrastructure) {
+          boolean success = battle.infrastructure(t.order);
+          t.stopped = true;
+          emit(
+              events,
+              day,
+              iteration,
+              tick,
+              t,
+              "WorldEvent",
+              success ? t.order.action().name() : "INFRASTRUCTURE_FAILED",
+              positions.get(t.regiment.id()),
+              t.target(),
+              List.of(t.regiment.id()),
+              success ? "设施行动生效；通信图即时重建" : "执行时能力或目标已失效");
+          emit(
+              events,
+              day,
+              iteration,
+              tick,
+              t,
+              "OrderTransition",
+              success ? "COMPLETED" : "ACTION_FAILED",
+              positions.get(t.regiment.id()),
+              t.target(),
+              List.of(t.regiment.id()),
+              "设施行动结束");
+        }
+        var due =
+            allDue.stream().filter(t -> !bombs.contains(t) && !infrastructure.contains(t)).toList();
         Map<String, Task> moving = new TreeMap<>();
         due.forEach(t -> moving.put(t.regiment.id(), t));
         Map<HexCoord, List<Task>> targets = new HashMap<>();
@@ -387,7 +553,11 @@ public final class DaySimulation {
               tick,
               t,
               "OrderTransition",
-              "COMPLETED",
+              battle.alive(t.regiment.id())
+                      && t.regiment.companies().stream()
+                          .anyMatch(c -> c.hp() > 0 && c.type() == CompanyType.ARTILLERY)
+                  ? "COMPLETED"
+                  : "ACTION_FAILED",
               t.regiment.position(),
               t.order.target(),
               List.of(t.regiment.id()),
@@ -454,12 +624,13 @@ public final class DaySimulation {
               t.withdrawing = true;
               newWithdrawals.add(t);
               t.stopped = false;
-              schedule(input, positions, t, tick, day, iteration, events);
+              schedule(battle.world(), positions, t, tick, day, iteration, events);
             }
           }
         for (var t : due)
           if (!t.stopped && !newWithdrawals.contains(t))
-            schedule(input, positions, t, tick, day, iteration, events);
+            schedule(battle.world(), positions, t, tick, day, iteration, events);
+        battle.observeAll();
       }
     }
     for (var t : tasks)
@@ -478,13 +649,55 @@ public final class DaySimulation {
             "达到当日迭代上限；剩余路径需次日重新下令");
     battle.rest(deadline);
     Scenario world = battle.world();
+    battle.observeAll();
+    operations.forEach(op -> op.outcomes(world, events));
+    var nextIntelligence = intelligence.advance(world, day + 1, battle.observations);
+    var nextMemory = nextIntelligence.shareSupplies(battle.memory);
+    var reportQueue = new ArrayList<>(intelligence.pending());
+    for (var r : world.regiments())
+      if (battle.observations.containsKey(r.id()))
+        reportQueue.add(
+            new IntelligenceState.Report(r.id(), r.side(), day, battle.observations.get(r.id())));
+    var network = new CommunicationNetwork(world);
+    int reportSequence = 0;
+    for (var report : reportQueue)
+      if (network.toDivision(report.source())) {
+        events.add(
+            new Event(
+                1,
+                "d" + (day + 1) + "-report-" + (++reportSequence),
+                "ReportDelivery",
+                "REPORT_DELIVERED",
+                day + 1,
+                0,
+                0,
+                0,
+                "",
+                report.source(),
+                null,
+                null,
+                List.of(report.source()),
+                "observedDay="
+                    + report.observedDay()
+                    + "; deliveredDay="
+                    + (day + 1)
+                    + "; recipient="
+                    + report.side()
+                    + " division and connected units",
+                null,
+                null,
+                null));
+      }
+
     return new Result(
         day,
         world,
-        stateHash(day, world, battle.memory),
+        stateHash(day, world, nextMemory, nextIntelligence),
         events,
-        battle.memory,
-        reports(input, world));
+        nextMemory,
+        reports(input, world),
+        nextIntelligence,
+        operations.stream().flatMap(op -> op.states().stream()).toList());
   }
 
   public static String stateHash(int day, Scenario world, Map<String, RegimentMemory> memory) {
@@ -628,7 +841,12 @@ public final class DaySimulation {
     return digest(seed + ":" + day + ":" + domain);
   }
 
-  private static String digest(String text) {
+  public static String stateHash(
+      int day, Scenario world, Map<String, RegimentMemory> memory, IntelligenceState intelligence) {
+    return digest(stateHash(day, world, memory) + "\n" + intelligence.toString());
+  }
+
+  static String digest(String text) {
     try {
       return HexFormat.of()
           .formatHex(

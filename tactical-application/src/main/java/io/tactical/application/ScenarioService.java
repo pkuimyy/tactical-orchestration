@@ -1,6 +1,7 @@
 package io.tactical.application;
 
 import io.tactical.core.*;
+import io.tactical.core.Scenario.Side;
 import io.tactical.simulation.RuleSet;
 import java.util.*;
 
@@ -110,7 +111,9 @@ public final class ScenarioService {
             s.cells(),
             s.edges(),
             s.regiments(),
-            s.supplies()));
+            s.supplies(),
+            s.communicationNodes(),
+            s.communicationRadius()));
   }
 
   public synchronized Draft copy(String id, long expectedVersion) {
@@ -127,7 +130,9 @@ public final class ScenarioService {
             s.cells(),
             s.edges(),
             s.regiments(),
-            s.supplies()));
+            s.supplies(),
+            s.communicationNodes(),
+            s.communicationRadius()));
   }
 
   public synchronized Draft archive(String id, long expectedVersion, boolean value) {
@@ -233,6 +238,23 @@ public final class ScenarioService {
   public synchronized BattleSession.View turn(String id) {
     game(id);
     return battles.get(id).view();
+  }
+
+  public synchronized BattleSession.PlayerView projection(
+      String id, BattleSession.Perspective perspective, Side side) {
+    game(id);
+    return battles.get(id).projection(perspective, side);
+  }
+
+  public synchronized BattleSession.View submit(
+      String id,
+      int day,
+      Side side,
+      long expectedVersion,
+      List<MovementOrder> orders,
+      OperationPlan operation) {
+    game(id);
+    return battles.get(id).submit(day, side, expectedVersion, orders, operation);
   }
 
   public synchronized BattleSession.View submit(

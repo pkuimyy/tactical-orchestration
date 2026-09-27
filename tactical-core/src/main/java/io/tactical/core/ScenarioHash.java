@@ -65,6 +65,18 @@ public final class ScenarioHash {
         out.writeUTF(supply.side().name());
         out.writeInt(supply.stock());
       }
+      // Preserve canonical-v1 hashes for legacy inputs with default communication settings.
+      if (!s.communicationNodes().isEmpty() || s.communicationRadius() != 5) {
+        out.writeUTF("communication-v1");
+        out.writeInt(s.communicationRadius());
+        out.writeInt(s.communicationNodes().size());
+        for (var n : s.communicationNodes()) {
+          out.writeUTF(n.id());
+          coord(out, n.position());
+          out.writeUTF(n.side().name());
+          out.writeInt(n.hp());
+        }
+      }
       out.flush();
       return HexFormat.of()
           .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes.toByteArray()));

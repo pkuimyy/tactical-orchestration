@@ -1,0 +1,451 @@
+{
+  "schemaVersion": 1,
+  "name": "河桥协作与通信实验",
+  "width": 8,
+  "height": 4,
+  "cells": [
+    {
+      "position": {
+        "q": 0,
+        "r": 0
+      },
+      "terrain": "CITY",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 3
+      },
+      "terrain": "CITY",
+      "fortification": 0
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "q": 2,
+        "r": 1
+      },
+      "b": {
+        "q": 3,
+        "r": 0
+      },
+      "river": true,
+      "bridge": "DESTROYED",
+      "road": true
+    }
+  ],
+  "regiments": [
+    {
+      "id": "blue-hq",
+      "name": "blue-hq",
+      "side": "BLUE",
+      "role": "DIVISION_HQ",
+      "position": {
+        "q": 0,
+        "r": 0
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "blue-hq-0",
+          "type": "SIGNAL",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "blue-brigade",
+      "name": "blue-brigade",
+      "side": "BLUE",
+      "role": "BRIGADE_HQ",
+      "position": {
+        "q": 1,
+        "r": 0
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "blue-brigade-0",
+          "type": "SIGNAL",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "blue-brigade-1",
+          "type": "SIGNAL",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "blue-engineers",
+      "name": "blue-engineers",
+      "side": "BLUE",
+      "role": "REGIMENT",
+      "position": {
+        "q": 2,
+        "r": 0
+      },
+      "brigadeId": "blue-brigade",
+      "companies": [
+        {
+          "id": "blue-engineers-0",
+          "type": "ENGINEER",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "blue-armor",
+      "name": "blue-armor",
+      "side": "BLUE",
+      "role": "REGIMENT",
+      "position": {
+        "q": 2,
+        "r": 1
+      },
+      "brigadeId": "blue-brigade",
+      "companies": [
+        {
+          "id": "blue-armor-0",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "blue-guns",
+      "name": "blue-guns",
+      "side": "BLUE",
+      "role": "REGIMENT",
+      "position": {
+        "q": 1,
+        "r": 2
+      },
+      "brigadeId": "blue-brigade",
+      "companies": [
+        {
+          "id": "blue-guns-0",
+          "type": "ARTILLERY",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "red-hq",
+      "name": "red-hq",
+      "side": "RED",
+      "role": "DIVISION_HQ",
+      "position": {
+        "q": 7,
+        "r": 3
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "red-hq-0",
+          "type": "SIGNAL",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "red-guard",
+      "name": "red-guard",
+      "side": "RED",
+      "role": "REGIMENT",
+      "position": {
+        "q": 6,
+        "r": 2
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "red-guard-0",
+          "type": "INFANTRY",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    }
+  ],
+  "supplies": [
+    {
+      "id": "blue-rear",
+      "position": {
+        "q": 1,
+        "r": 1
+      },
+      "side": "BLUE",
+      "stock": 200
+    }
+  ],
+  "communicationNodes": [
+    {
+      "id": "blue-relay",
+      "position": {
+        "q": 4,
+        "r": 2
+      },
+      "side": "BLUE",
+      "hp": 30
+    }
+  ],
+  "communicationRadius": 5
+}

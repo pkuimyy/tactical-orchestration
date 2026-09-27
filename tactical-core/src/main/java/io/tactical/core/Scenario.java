@@ -11,8 +11,25 @@ public record Scenario(
     List<Cell> cells,
     List<Edge> edges,
     List<Regiment> regiments,
-    List<Supply> supplies) {
+    List<Supply> supplies,
+    List<CommunicationNode> communicationNodes,
+    Integer communicationRadius) {
+  public Scenario(
+      int schemaVersion,
+      String name,
+      int width,
+      int height,
+      List<Cell> cells,
+      List<Edge> edges,
+      List<Regiment> regiments,
+      List<Supply> supplies) {
+    this(schemaVersion, name, width, height, cells, edges, regiments, supplies, List.of(), 5);
+  }
+
   public Scenario {
+    communicationNodes =
+        communicationNodes == null ? List.of() : copy(communicationNodes, "communicationNodes");
+    communicationRadius = communicationRadius == null ? 5 : communicationRadius;
     cells = copy(cells, "cells");
     edges = copy(edges, "edges");
     regiments = copy(regiments, "regiments");
@@ -86,6 +103,8 @@ public record Scenario(
       companies = copy(companies, "companies");
     }
   }
+
+  public record CommunicationNode(String id, HexCoord position, Side side, int hp) {}
 
   public record Supply(String id, HexCoord position, Side side, int stock) {}
 }

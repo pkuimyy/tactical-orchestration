@@ -6,6 +6,7 @@ import io.tactical.application.ScenarioService;
 import io.tactical.application.ScenarioService.*;
 import io.tactical.application.StoreProblem;
 import io.tactical.core.MovementOrder;
+import io.tactical.core.OperationPlan;
 import io.tactical.core.Scenario;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -153,6 +154,14 @@ final class ScenarioController {
             Scenario.class);
   }
 
+  @GetMapping("/presets/coordination")
+  Scenario coordinationPreset() throws IOException {
+    return new ObjectMapper()
+        .readValue(
+            new ClassPathResource("scenarios/m4-river-operation.json").getContentAsByteArray(),
+            Scenario.class);
+  }
+
   @GetMapping("/rules/company-profiles")
   java.util.Map<Scenario.CompanyType, io.tactical.simulation.CombatRules.Profile>
       companyProfiles() {
@@ -190,12 +199,21 @@ final class ScenarioController {
     return service.turn(id);
   }
 
+  @GetMapping("/games/{id}/view")
+  BattleSession.PlayerView projection(
+      @PathVariable String id,
+      @RequestParam(defaultValue = "DIVISION") BattleSession.Perspective perspective,
+      @RequestParam(defaultValue = "BLUE") Scenario.Side side) {
+    return service.projection(id, perspective, side);
+  }
+
   @PutMapping("/games/{id}/orders/{side}")
   BattleSession.View orders(
       @PathVariable String id,
       @PathVariable Scenario.Side side,
       @Valid @RequestBody SubmitOrders request) {
-    return service.submit(id, request.day(), side, request.expectedVersion(), request.orders());
+    return service.submit(
+        id, request.day(), side, request.expectedVersion(), request.orders(), request.operation());
   }
 
   @PostMapping("/games/{id}/commit/{side}")
@@ -231,7 +249,8 @@ final class ScenarioController {
   record SubmitOrders(
       @Min(1) @Max(60) int day,
       @Min(0) long expectedVersion,
-      @NotNull @Size(max = 32) List<MovementOrder> orders) {}
+      @NotNull @Size(max = 32) List<MovementOrder> orders,
+      OperationPlan operation) {}
 
   record CommitOrders(@Min(1) @Max(60) int day, @Min(1) long expectedVersion) {}
 
