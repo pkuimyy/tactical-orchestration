@@ -1,4 +1,5 @@
 const $ = (id) => document.getElementById(id);
+let companyProfiles = {};
 let token = "",
   draft = null,
   selected = null,
@@ -118,7 +119,7 @@ function renderEvents() {
         li.addEventListener("click", () => {
           selected = e.to;
           renderMap();
-          message(li.title);
+          showEvent(e);
         });
         return li;
       }
@@ -567,8 +568,8 @@ function renderInspector() {
       id: uid("company"),
       type: "INFANTRY",
       equipment: "FOOT",
-      maxHp: 100,
-      hp: 100,
+      maxHp: companyProfiles.INFANTRY.suggestedHp,
+      hp: companyProfiles.INFANTRY.suggestedHp,
     },
   ])
     addCompany(c);
@@ -603,8 +604,8 @@ function addCompany(
     id: uid("company"),
     type: "INFANTRY",
     equipment: "FOOT",
-    maxHp: 100,
-    hp: 100,
+    maxHp: companyProfiles.INFANTRY.suggestedHp,
+    hp: companyProfiles.INFANTRY.suggestedHp,
   },
 ) {
   const div = document.createElement("div");
@@ -722,6 +723,7 @@ $("auth-form").addEventListener("submit", (e) => {
     token = $("token").value.trim();
     $("token").value = "";
     await api("/system");
+    companyProfiles = await api("/rules/company-profiles");
     await listDrafts();
     const remembered = localStorage.getItem("tactical-draft-id");
     if ([...$("draft-list").options].some((o) => o.value === remembered))
@@ -1259,6 +1261,17 @@ const eventNames = {
   BLOCKED: "受阻",
   IMPASSABLE: "不可通行",
   DEFERRED: "待续",
+  WAITING: "等待条件",
+  DAMAGE: "连队战损",
+  DESTROYED: "部队被歼灭",
+  DISPLACED: "被驱离",
+  ADVANCED: "占领目标",
+  WITHDRAW: "学说撤退",
+  HOLD: "学说防御",
+  RECOVERED: "恢复 HP",
+  SUPPLY_USED: "消耗补给",
+  REST_FAILED: "休整失败",
+  BOMBARD_MISSED: "炮击落空",
 };
 const batchFor = (side) => turn?.[side.toLowerCase()];
 function ordersDirty() {
@@ -1272,7 +1285,15 @@ function ordersDirty() {
 function battleControls() {
   const batch = batchFor(battleSide),
     locked = batch?.committed || turn?.status === "LIMIT_REACHED";
-  for (const id of ["route-undo", "route-clear", "order-unit"])
+  for (const id of [
+    "route-undo",
+    "route-clear",
+    "order-unit",
+    "order-action",
+    "doctrine-template",
+    "doctrine-threshold",
+    "doctrine-supply",
+  ])
     $(id).disabled = busy || !turn || locked || !$("order-unit").value;
   $("submit-orders").disabled = busy || !turn || locked;
   $("commit-orders").disabled =
@@ -1365,24 +1386,70 @@ function renderTurn() {
 }
 function renderRoute() {
   const unit = turn.world.regiments.find((r) => r.id === $("order-unit").value);
-  const route =
-    localOrders[battleSide].find((o) => o.regimentId === unit?.id)?.route || [];
-  $("order-unit-info").textContent = unit
-    ? unit.companies
-        .map((c) => `${names[c.type]} / ${equipment[c.equipment]} ${c.hp}HP`)
-        .join(" · ")
-    : "本方可提交空命令表，全体原地待命。";
-  $("order-route").textContent = route.length
-    ? `${key(unit.position)} → ${route.map(key).join(" → ")}`
-    : "原地待命。依次点击相邻地图格添加路径。";
+  const order = localOrders[battleSide].find((o) => o.regimentId === unit?.id);
+  const route = order?.route || [];
+  const report = turn.units.find((r) => r.id === unit?.id);
+  $("order-unit-info").textContent = report
+    ? `组织度 ${(report.organization / 10).toFixed(1)}% · ${unit.companies.length} 个正式连位`
+    : "本方可提交空命令表，全体待命。";
+  $("order-action").value = order?.action || "MOVE";
+  $("order-route").textContent =
+    order?.action === "BOMBARD"
+      ? order.target
+        ? `炮击目标 ${key(order.target)}`
+        : "点击地图选择炮击目标。"
+      : order?.action === "REST"
+        ? "原地休整：消耗当地补给库存恢复有效连 HP。"
+        : order?.action === "DEFEND"
+          ? "展开防御：准备接敌，保持当前位置。"
+          : route.length
+            ? `${key(unit.position)} → ${route.map(key).join(" → ")}`
+            : "原地待命。依次点击相邻地图格添加路径。";
   $("order-route").title = $("order-route").textContent;
+  const memory = turn.memory[unit?.id],
+    doctrine = order?.doctrine || memory?.doctrine;
+  if (doctrine) {
+    $("doctrine-template").value = doctrine.template;
+    $("doctrine-threshold").value = doctrine.withdrawBelowPercent;
+    const known = memory.supplies.filter((s) => s.side === battleSide);
+    optionList(
+      $("doctrine-supply"),
+      [
+        ["", "自动选择已知可达补给点"],
+        ...known.map((s) => [
+          s.id,
+          `${s.id} · ${key(s.position)} · 库存 ${s.stock}`,
+        ]),
+        ...(!known.some((s) => s.id === doctrine.supplyId) && doctrine.supplyId
+          ? [[doctrine.supplyId, `${doctrine.supplyId} · 尚未知晓`]]
+          : []),
+      ],
+      doctrine.supplyId,
+    );
+    $("doctrine-knowledge").textContent =
+      `本团已知己方补给点 ${known.length} 处 · 仅邻近观察更新，库存可能过时。`;
+  }
+  const reports = lastDay?.result.units || turn.units;
+  optionList(
+    $("report-unit"),
+    reports.map((r) => [r.id, `${r.name}${r.destroyed ? " · 已被歼灭" : ""}`]),
+    reports.some((r) => r.id === unit?.id) ? unit.id : reports[0]?.id,
+  );
+  renderCombatReport();
 }
 function currentLocalOrder() {
   const id = $("order-unit").value;
   if (!id) return null;
   let order = localOrders[battleSide].find((o) => o.regimentId === id);
   if (!order) {
-    order = { orderId: uid("move"), regimentId: id, route: [] };
+    order = {
+      orderId: uid("move"),
+      regimentId: id,
+      route: [],
+      action: "MOVE",
+      target: null,
+      doctrine: null,
+    };
     localOrders[battleSide].push(order);
   }
   return order;
@@ -1395,6 +1462,15 @@ function chooseWaypoint(point) {
     $("order-unit").value
   ) {
     const order = currentLocalOrder();
+    if (order.action === "BOMBARD") {
+      order.target = point;
+      renderTurn();
+      return;
+    }
+    if (order.action && order.action !== "MOVE") {
+      message("当前行动无需规划行军路线。");
+      return;
+    }
     const from =
       order.route.at(-1) ||
       turn.world.regiments.find((r) => r.id === order.regimentId).position;
@@ -1417,6 +1493,16 @@ function showDayEvents() {
   eventRows = lastDay?.result.events || [];
   eventPage = 0;
   renderEvents();
+  const reports = lastDay?.result.units || turn.units;
+  const selectedReport = $("report-unit").value;
+  optionList(
+    $("report-unit"),
+    reports.map((r) => [r.id, `${r.name}${r.destroyed ? " · 已被歼灭" : ""}`]),
+    reports.some((r) => r.id === selectedReport)
+      ? selectedReport
+      : reports[0]?.id,
+  );
+  renderCombatReport();
   $("turn-result").textContent = lastDay
     ? `第 ${lastDay.result.day} 天已结算 · ${eventRows.length} 条记录 · 状态指纹 ${lastDay.result.stateHash.slice(0, 20)}`
     : "双方均须提交并确认；重复结算请求不会多推进一天。";
@@ -1453,7 +1539,10 @@ $("route-undo").addEventListener("click", () => {
 });
 $("route-clear").addEventListener("click", () => {
   const order = currentLocalOrder();
-  if (order) order.route = [];
+  if (order) {
+    order.route = [];
+    order.target = null;
+  }
   renderTurn();
 });
 $("submit-orders").addEventListener("click", () =>
@@ -1516,5 +1605,121 @@ $("export-events").addEventListener("click", () =>
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }),
 );
+$("preset-combat").addEventListener("click", () =>
+  run(async () => {
+    const result = await api(
+      "/scenarios/import",
+      "POST",
+      await api("/presets/combat-line"),
+    );
+    selected = null;
+    revision = null;
+    await loadDraft(result.id);
+  }),
+);
+for (const button of document.querySelectorAll("[data-turn-tab]"))
+  button.addEventListener("click", () => {
+    document
+      .querySelectorAll(".turn-page")
+      .forEach((p) => (p.hidden = p.id !== button.dataset.turnTab));
+    document
+      .querySelectorAll("[data-turn-tab]")
+      .forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+  });
+$("order-action").addEventListener("change", () => {
+  const o = currentLocalOrder();
+  if (!o) return;
+  o.action = $("order-action").value;
+  o.route = [];
+  o.target = null;
+  renderTurn();
+});
+for (const id of ["doctrine-template", "doctrine-threshold", "doctrine-supply"])
+  $(id).addEventListener("change", () => {
+    const threshold = Number($("doctrine-threshold").value);
+    if (
+      !$("doctrine-threshold").value ||
+      !Number.isInteger(threshold) ||
+      threshold < 0 ||
+      threshold > 100
+    ) {
+      message("组织度阈值必须为 0–100 整数。", true);
+      return;
+    }
+    const o = currentLocalOrder();
+    if (!o) return;
+    o.doctrine = {
+      schemaVersion: 1,
+      template: $("doctrine-template").value,
+      withdrawBelowPercent: threshold,
+      supplyId: $("doctrine-supply").value,
+    };
+    renderTurn();
+  });
+function renderCombatReport() {
+  if (!turn) return;
+  const report = (lastDay?.result.units || turn.units).find(
+    (r) => r.id === $("report-unit").value,
+  );
+  $("company-report").replaceChildren();
+  if (!report) return;
+  $("report-position").textContent =
+    `${lastDay ? "第 " + lastDay.result.day + " 天" : "当前"} · ${key(report.before)} → ${report.after ? key(report.after) : "被歼灭"} · 组织度 ${(report.organization / 10).toFixed(1)}%`;
+  for (const c of report.companies) {
+    const tr = document.createElement("tr");
+    for (const text of [
+      `${names[c.type]} / ${equipment[c.equipment]}`,
+      `${c.beforeHp} → ${c.hp}`,
+      `${(c.organization / 10).toFixed(1)}%`,
+    ]) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      tr.append(td);
+    }
+    tr.dataset.companyId = c.id;
+    $("company-report").append(tr);
+  }
+  const decision = lastDay?.result.events
+    .filter((e) => e.regimentId === report.id && e.decision)
+    .at(-1)?.decision;
+  $("report-doctrine").textContent = decision
+    ? `${decision.rule} · ${eventNames[decision.action]} · ${decision.reason}`
+    : "尚无学说触发记录。";
+}
+$("report-unit").addEventListener("change", renderCombatReport);
+function showEvent(e) {
+  $("event-summary").textContent =
+    `第 ${e.day} 天 · ${eventNames[e.kind] || e.kind} · ${e.regimentId} · ${key(e.from)} → ${key(e.to)}`;
+  const lines = [e.reason, `参与部队：${e.participants.join("、")}`];
+  if (e.damage) {
+    const d = e.damage;
+    lines.push(
+      `来源：${d.sourceRegimentId} / ${d.sourceCompanyId}`,
+      `受影响连：${d.targetCompanyId}`,
+      `HP：${d.beforeHp} → ${d.afterHp}`,
+      `组织度：${(d.organizationBefore / 10).toFixed(1)}% → ${(d.organizationAfter / 10).toFixed(1)}%`,
+      `火力 ${d.rawPower} · 防护 ${d.protection}% · 类型 ${d.damageType}`,
+    );
+  }
+  if (e.decision) {
+    const d = e.decision;
+    lines.push(
+      `命中规则：${d.rule}`,
+      `行动：${eventNames[d.action]} · 补给目标：${d.targetSupplyId || "无"}`,
+      `路径：${d.route.map(key).join(" → ") || "原地"}`,
+      "决策使用的本团补给知识：",
+      ...d.knowledge.map(
+        (k) =>
+          `${k.id} · ${key(k.position)} · ${k.side} · 库存 ${k.stock} · 第 ${k.observedDay} 天观察`,
+      ),
+    );
+  }
+  if (e.stock)
+    lines.push(
+      `补给点 ${e.stock.supplyId}：${e.stock.beforeStock} → ${e.stock.afterStock}`,
+    );
+  $("event-detail").textContent = lines.join("\n");
+  $("event-dialog").showModal();
+}
 controls();
 $("auth-dialog").showModal();

@@ -1,7 +1,7 @@
 # 战术编排 · Tactical Orchestration
 
-M2：单屏游戏工作台，支持独立战场管理、冻结实验、双方命令锁定和确定性的一日移动／接敌结算。
-最慢有效连决定团机动，运行清单与 JSONL 可导出复现；战损和学说将在 M3 加入。
+M3：单屏游戏工作台，支持战场管理、冻结实验、WEGO、连级战斗与知识受限的默认学说。
+可观察突破失败后的撤退、补给休整、远距炮击，以及每个连的 HP、组织度和决策依据。
 
 ## 环境与构建
 
@@ -54,7 +54,7 @@ curl -i http://127.0.0.1:8080/api/v1/system
 接口结构从运行服务的 OpenAPI 获取，不再维护重复的手填 `.http` 样例。
 契约检查不创建场景、不执行命令；版本与错误约定见 [contracts.md](docs/contracts.md)。
 
-## 游戏工作台（M2）
+## 游戏工作台（M3）
 
 启动后打开 `http://127.0.0.1:8080/`，将 `.runtime/session.token` 的内容粘贴到页面并连接。
 
@@ -66,7 +66,8 @@ curl -i http://127.0.0.1:8080/api/v1/system
 6. 查看位置更新和分页事件，导出运行清单及 JSONL；继续修改草稿不会改变已有实验输入。
 
 内置「追击验证」场景演示侦察 6 对装甲 5；具体操作、测试数值、冲突与幂等语义见
-[M2 WEGO 与机动](docs/m2-wego.md)。当前数据保存在进程内存，服务重启前请导出重要输入和结果。
+[M2 WEGO 与机动](docs/m2-wego.md)。新增「混编防线」演示连级战损、学说撤退和补给休整，
+操作及规则见 [M3 战斗与学说](docs/m3-combat.md)。当前数据在进程内存中，重启前请导出重要输入和结果。
 
 主界面以地图为中心，部署面板、实验控制和指挥记录同屏；适配 1980×1080，
 同时验证了 1920×1080 和 1980×960 浏览器可用区域无页面/主面板滚动条。
@@ -91,7 +92,7 @@ MVP 客户端以实施计划为准，M1 开始使用 Spring Boot 同源原生 We
 不引入独立 CLI、JavaFX、前端框架或客户端规则引擎。
 验收记录见 [MVP-acceptance.md](docs/MVP-acceptance.md)。
 
-独立产物与 M1／M2 HTTP 流程验收（Linux，另需 Python 3 和 cURL）：
+独立产物与 M1–M3 HTTP 流程验收（Linux，另需 Python 3 和 cURL）：
 
 ```sh
 python3 scripts/smoke-test.py
@@ -124,8 +125,8 @@ PLAYWRIGHT_MODULE=/path/to/playwright node scripts/browser-smoke.mjs
 ```
 
 脚本从空白地图完成编辑、冻结、双实验、刷新、错误展示和导入导出，并验证六连分页、
-多实验分页、战场管理、M2 双方下令及 HTTP 重放一致性、日志导出和目标分辨率布局。
-截图输出到 `tactical-server/target/` 的 `m1.1-game.png`、`m1.2-library.png` 和 `m2-command.png`。
+多实验分页、战场管理、M2 双方下令、M3 战斗／撤退／休整／炮击、HTTP 重放一致性、日志导出和目标分辨率布局。
+截图输出到 `tactical-server/target/` 的 `m1.1-game.png`、`m1.2-library.png` 、`m2-command.png` 和 `m3-combat.png`。
 可设置 `BROWSER_BIND_ADDRESS` 为本机 WSL IP，验证 HTTP IP 来源的完整流程。
 
 顶部「战场管理」独立页签提供搜索、重命名、复制、归档／恢复和删除。复制仅复制部署，

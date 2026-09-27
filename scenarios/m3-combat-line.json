@@ -1,0 +1,464 @@
+{
+  "schemaVersion": 1,
+  "name": "M3 混编防线与失败撤退",
+  "width": 8,
+  "height": 4,
+  "cells": [
+    {
+      "position": {
+        "q": 0,
+        "r": 0
+      },
+      "terrain": "CITY",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 3
+      },
+      "terrain": "CITY",
+      "fortification": 0
+    }
+  ],
+  "edges": [],
+  "regiments": [
+    {
+      "id": "blue-hq",
+      "name": "蓝方师部",
+      "side": "BLUE",
+      "role": "DIVISION_HQ",
+      "position": {
+        "q": 0,
+        "r": 0
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "blue-hq-c1",
+          "type": "SIGNAL",
+          "equipment": "FOOT",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "red-hq",
+      "name": "红方师部",
+      "side": "RED",
+      "role": "DIVISION_HQ",
+      "position": {
+        "q": 7,
+        "r": 3
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "red-hq-c1",
+          "type": "SIGNAL",
+          "equipment": "FOOT",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "assault",
+      "name": "蓝方装甲突击团",
+      "side": "BLUE",
+      "role": "REGIMENT",
+      "position": {
+        "q": 2,
+        "r": 1
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "assault-c1",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "assault-c2",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "assault-c3",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "assault-c4",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "assault-c5",
+          "type": "INFANTRY",
+          "equipment": "MECHANIZED",
+          "maxHp": 160,
+          "hp": 160
+        },
+        {
+          "id": "assault-c6",
+          "type": "INFANTRY",
+          "equipment": "MECHANIZED",
+          "maxHp": 160,
+          "hp": 160
+        }
+      ]
+    },
+    {
+      "id": "line",
+      "name": "红方混编守线团",
+      "side": "RED",
+      "role": "REGIMENT",
+      "position": {
+        "q": 3,
+        "r": 1
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "line-c1",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "line-c2",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "line-c3",
+          "type": "INFANTRY",
+          "equipment": "FOOT",
+          "maxHp": 160,
+          "hp": 160
+        },
+        {
+          "id": "line-c4",
+          "type": "INFANTRY",
+          "equipment": "FOOT",
+          "maxHp": 160,
+          "hp": 160
+        },
+        {
+          "id": "line-c5",
+          "type": "INFANTRY",
+          "equipment": "FOOT",
+          "maxHp": 160,
+          "hp": 160
+        },
+        {
+          "id": "line-c6",
+          "type": "INFANTRY",
+          "equipment": "FOOT",
+          "maxHp": 160,
+          "hp": 160
+        }
+      ]
+    },
+    {
+      "id": "guns",
+      "name": "蓝方炮兵团",
+      "side": "BLUE",
+      "role": "REGIMENT",
+      "position": {
+        "q": 0,
+        "r": 2
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "guns-c1",
+          "type": "ARTILLERY",
+          "equipment": "TOWED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "guns-c2",
+          "type": "ARTILLERY",
+          "equipment": "TOWED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    }
+  ],
+  "supplies": [
+    {
+      "id": "rear",
+      "position": {
+        "q": 1,
+        "r": 1
+      },
+      "side": "BLUE",
+      "stock": 200
+    },
+    {
+      "id": "hidden",
+      "position": {
+        "q": 7,
+        "r": 0
+      },
+      "side": "BLUE",
+      "stock": 900
+    }
+  ]
+}

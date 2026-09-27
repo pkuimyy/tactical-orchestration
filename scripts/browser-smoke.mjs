@@ -466,10 +466,176 @@ try {
     ).position.q,
     1,
   );
+  // M3 end-to-end combat, doctrine override, six-company reports and stock-backed rest.
+  await clickAndStatus("#preset-combat", "已从服务端载入");
+  const combatDraftId = await page.locator("#draft-list").inputValue();
+  await clickAndStatus("#freeze", "冻结成功");
+  await clickAndStatus("#create-game", "独立实验已创建");
+  const combatRevision = (
+    await http(`/scenarios/${combatDraftId}/revisions`)
+  )[0];
+  const combatGame = (await http(`/revisions/${combatRevision.id}/games`))[0];
+  await page
+    .locator(".game")
+    .first()
+    .getByRole("button", { name: "进入推演" })
+    .click();
+  await page.waitForFunction(
+    () =>
+      document.getElementById("battle-tab").getAttribute("aria-pressed") ===
+      "true",
+  );
+  await page.locator("#side-blue").click();
+  await page.locator("#order-unit").selectOption("assault");
+  await page.locator('[data-turn-tab="doctrine-page"]').click();
+  await page.locator("#doctrine-template").selectOption("BREAKTHROUGH");
+  await page.locator("#doctrine-supply").selectOption("rear");
+  assert.ok(
+    !(await page.locator("#doctrine-supply").textContent()).includes("hidden"),
+  );
+  await page.locator('[data-turn-tab="action-page"]').click();
+  await selectCell(3, 1);
+  await clickAndStatus("#submit-orders", "命令已提交");
+  await clickAndStatus("#commit-orders", "命令已锁定");
+  await page.locator("#side-red").click();
+  await page.locator("#order-unit").selectOption("line");
+  await page.locator("#order-action").selectOption("DEFEND");
+  await clickAndStatus("#submit-orders", "命令已提交");
+  await clickAndStatus("#commit-orders", "命令已锁定");
+  await clickAndStatus("#resolve-day", "第 1 天结算完成");
+  const battleResult = await http(`/games/${combatGame.id}/days/1`);
+  const assaultReport = battleResult.result.units.find(
+    (r) => r.id === "assault",
+  );
+  assert.deepEqual(assaultReport.after, { q: 1, r: 1 });
+  assert.ok(assaultReport.companies.some((c) => c.hp < c.beforeHp));
+  const combatReplay = await http("/games", "POST", {
+    revisionId: combatRevision.id,
+    seed: 42,
+  });
+  for (const side of ["BLUE", "RED"]) {
+    await http(`/games/${combatReplay.id}/orders/${side}`, "PUT", {
+      day: 1,
+      expectedVersion: 0,
+      orders: battleResult.manifest[side.toLowerCase()],
+    });
+    await http(`/games/${combatReplay.id}/commit/${side}`, "POST", {
+      day: 1,
+      expectedVersion: 1,
+    });
+  }
+  assert.deepEqual(
+    await http(`/games/${combatReplay.id}/resolve`, "POST", { day: 1 }),
+    battleResult,
+  );
+  await page.locator("#side-blue").click();
+  await page.locator("#order-unit").selectOption("assault");
+  await page.locator('[data-turn-tab="report-page"]').click();
+  assert.equal(await page.locator("#company-report tr").count(), 6);
+  for (const c of assaultReport.companies) {
+    const row = await page.locator(`[data-company-id="${c.id}"]`).textContent();
+    assert.ok(row.includes(`${c.beforeHp} → ${c.hp}`));
+    assert.ok(row.includes(`${(c.organization / 10).toFixed(1)}%`));
+  }
+  assert.ok(
+    (await page.locator("#report-doctrine").textContent()).includes(
+      "BREAKTHROUGH_FAILED",
+    ),
+  );
+  const decisionIndex = battleResult.result.events.findIndex(
+    (e) => e.regimentId === "assault" && e.decision,
+  );
+  for (let p = 0; p < Math.floor(decisionIndex / 6); p++)
+    await page.locator("#events-next").click();
+  await page
+    .locator(
+      `[data-event-id="${battleResult.result.events[decisionIndex].id}"]`,
+    )
+    .click();
+  assert.ok(
+    (await page.locator("#event-detail").textContent()).includes("rear"),
+  );
+  assert.ok(
+    !(await page.locator("#event-detail").textContent()).includes("hidden"),
+  );
+  await page.locator('[data-close="event-dialog"]').click();
+  for (const size of [
+    { width: 1980, height: 1080 },
+    { width: 1920, height: 1080 },
+    { width: 1980, height: 960 },
+  ]) {
+    await page.setViewportSize(size);
+    for (const tab of ["action-page", "doctrine-page", "report-page"]) {
+      await page.locator(`[data-turn-tab="${tab}"]`).click();
+      const overflow = await page.evaluate(() =>
+        [
+          "html",
+          "body",
+          ".game-board",
+          "#turn-panel",
+          ".turn-page:not([hidden])",
+          "#turn-operations",
+        ].filter((s) => {
+          const e = document.querySelector(s);
+          return (
+            e.scrollHeight > e.clientHeight + 2 ||
+            e.scrollWidth > e.clientWidth + 2
+          );
+        }),
+      );
+      assert.deepEqual(overflow, [], `M3 ${size.width}x${size.height} ${tab}`);
+    }
+  }
+  await page.screenshot({
+    path: join(root, "tactical-server/target/m3-combat.png"),
+    fullPage: true,
+  });
+  await page.locator('[data-turn-tab="action-page"]').click();
+  await page.locator("#order-action").selectOption("REST");
+  await clickAndStatus("#submit-orders", "命令已提交");
+  await clickAndStatus("#commit-orders", "命令已锁定");
+  await page.locator("#side-red").click();
+  await clickAndStatus("#submit-orders", "命令已提交");
+  await clickAndStatus("#commit-orders", "命令已锁定");
+  await clickAndStatus("#resolve-day", "第 2 天结算完成");
+  const rested = await http(`/games/${combatGame.id}/days/2`);
+  const recovered = rested.result.events
+    .filter((e) => e.kind === "RECOVERED")
+    .reduce((sum, e) => sum + e.damage.afterHp - e.damage.beforeHp, 0);
+  assert.ok(recovered > 0);
+  assert.equal(
+    rested.result.world.supplies.find((s) => s.id === "rear").stock,
+    200 - recovered,
+  );
+  assert.deepEqual(
+    await http(`/games/${combatGame.id}/resolve`, "POST", { day: 2 }),
+    rested,
+  );
+  await page.locator("#side-blue").click();
+  await page.locator("#order-unit").selectOption("guns");
+  await page.locator("#order-action").selectOption("BOMBARD");
+  await selectCell(3, 1);
+  await clickAndStatus("#submit-orders", "命令已提交");
+  await clickAndStatus("#commit-orders", "命令已锁定");
+  await page.locator("#side-red").click();
+  await clickAndStatus("#submit-orders", "命令已提交");
+  await clickAndStatus("#commit-orders", "命令已锁定");
+  await clickAndStatus("#resolve-day", "第 3 天结算完成");
+  const bombard = await http(`/games/${combatGame.id}/days/3`);
+  assert.ok(
+    bombard.result.events.some(
+      (e) => e.kind === "DAMAGE" && e.regimentId === "line",
+    ),
+  );
+  assert.ok(
+    bombard.result.units
+      .find((r) => r.id === "guns")
+      .companies.every((c) => c.hp === c.beforeHp),
+  );
   assert.deepEqual(errors, []);
   assert.ok(!log.includes(token));
   console.log(
-    "PASS: browser blank map → HQ/engineer/armor/supply/edge/HP editing → freeze → two games → isolation → validation error → refresh → export/import hash equivalence; single-screen 1980×1080 / 1920×1080 / 1980×960, six-company paging, M1.2 management; M2 both-side orders, lock/resolve, HTTP replay equality, JSONL and manifest export, no page errors",
+    "PASS: browser blank map → HQ/engineer/armor/supply/edge/HP editing → freeze → two games → isolation → validation error → refresh → export/import hash equivalence; single-screen 1980×1080 / 1920×1080 / 1980×960, six-company paging, M1.2 management; M2 both-side orders, lock/resolve, HTTP replay equality, JSONL and manifest export; M3 combat/known-only retreat, six-company reports, rest/stock and bombardment, no page errors",
   );
 } finally {
   await browser?.close();

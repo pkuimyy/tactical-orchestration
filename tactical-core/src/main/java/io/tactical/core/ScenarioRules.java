@@ -21,6 +21,15 @@ public final class ScenarioRules {
   }
 
   public static Scenario normalize(Scenario s) {
+    return normalize(s, false);
+  }
+
+  /** Runtime casualties may remove HQ signal companies and brigade headquarters. */
+  public static Scenario normalizeRuntime(Scenario s) {
+    return normalize(s, true);
+  }
+
+  private static Scenario normalize(Scenario s, boolean runtime) {
     check(s != null, "场景不能为空");
     check(s.schemaVersion() == ContractVersion.CURRENT, "不支持的场景 schemaVersion");
     name(s.name(), "场景名称");
@@ -78,21 +87,22 @@ public final class ScenarioRules {
               .count();
       if (regiment.role() == Role.DIVISION_HQ) {
         check(cells.get(regiment.position()).terrain() == Terrain.CITY, "师部必须部署在城市格");
-        check(signals >= 1, "师部至少需要一个存活通信连");
+        check(runtime || signals >= 1, "师部至少需要一个存活通信连");
         check(hqs.add(regiment.side()), "每方只能部署一个师部");
       }
-      if (regiment.role() == Role.BRIGADE_HQ) check(signals >= 2, "旅部必须占用两个正式连位配置存活通信连");
+      if (regiment.role() == Role.BRIGADE_HQ) check(runtime || signals >= 2, "旅部必须占用两个正式连位配置存活通信连");
       String brigade = regiment.brigadeId() == null ? "" : regiment.brigadeId();
       if (!brigade.isEmpty()) {
         id(brigade);
         check(regiment.role() == Role.REGIMENT, "仅普通团可以设置所属旅部");
         check(
-            s.regiments().stream()
-                .anyMatch(
-                    b ->
-                        brigade.equals(b.id())
-                            && b.role() == Role.BRIGADE_HQ
-                            && b.side() == regiment.side()),
+            runtime
+                || s.regiments().stream()
+                    .anyMatch(
+                        b ->
+                            brigade.equals(b.id())
+                                && b.role() == Role.BRIGADE_HQ
+                                && b.side() == regiment.side()),
             "所属旅部不存在或阵营不符");
       }
       regiments.add(

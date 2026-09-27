@@ -15,7 +15,14 @@ public final class BattleSession {
   }
 
   public record View(
-      int day, String status, int maxIterations, Scenario world, Batch blue, Batch red) {}
+      int day,
+      String status,
+      int maxIterations,
+      Scenario world,
+      Batch blue,
+      Batch red,
+      Map<String, RegimentMemory> memory,
+      List<DaySimulation.UnitReport> units) {}
 
   public record Manifest(
       int schemaVersion,
@@ -27,10 +34,12 @@ public final class BattleSession {
       int maxIterations,
       String inputHash,
       List<MovementOrder> blue,
-      List<MovementOrder> red) {
+      List<MovementOrder> red,
+      Map<String, RegimentMemory> memory) {
     public Manifest {
       blue = List.copyOf(blue);
       red = List.copyOf(red);
+      memory = Collections.unmodifiableMap(new TreeMap<>(memory));
     }
   }
 
@@ -40,6 +49,7 @@ public final class BattleSession {
   private final int iterations;
   private final String initialHash;
   private Scenario world;
+  private Map<String, RegimentMemory> memory;
   private int completedDays;
   private final Map<Side, Batch> batches = new EnumMap<>(Side.class);
   private final Map<Integer, Day> history = new TreeMap<>();
@@ -47,6 +57,7 @@ public final class BattleSession {
   public BattleSession(Scenario world, long seed, int iterations) {
     if (iterations < 1 || iterations > 8) throw new ScenarioViolation("事件迭代上限为 1–8");
     this.world = world;
+    this.memory = RegimentMemory.initial(world);
     this.seed = seed;
     this.iterations = iterations;
     initialHash = ScenarioHash.sha256(world);
@@ -62,7 +73,9 @@ public final class BattleSession {
         iterations,
         world,
         batches.get(Side.BLUE),
-        batches.get(Side.RED));
+        batches.get(Side.RED),
+        memory,
+        DaySimulation.reports(world, world));
   }
 
   public View submit(int day, Side side, long expectedVersion, List<MovementOrder> orders) {
@@ -94,7 +107,7 @@ public final class BattleSession {
     if (history.containsKey(day)) return history.get(day);
     current(day);
     if (!view().status().equals("LOCKED")) throw conflict("双方命令确认锁定后才能结算");
-    if (completedDays >= 60) throw new StoreProblem(StoreProblem.Kind.LIMIT, "M2 每场实验最多 60 天");
+    if (completedDays >= 60) throw new StoreProblem(StoreProblem.Kind.LIMIT, "每场实验最多 60 天");
     var blue = batches.get(Side.BLUE).orders();
     var red = batches.get(Side.RED).orders();
     var manifest =
@@ -106,13 +119,15 @@ public final class BattleSession {
             seed,
             day,
             iterations,
-            ScenarioHash.sha256(world),
+            DaySimulation.stateHash(completedDays, world, memory),
             blue,
-            red);
-    var result = new DaySimulation().resolve(world, day, seed, iterations, blue, red);
+            red,
+            memory);
+    var result = new DaySimulation().resolve(world, day, seed, iterations, blue, red, memory);
     var record = new Day(manifest, result);
     history.put(day, record);
     world = result.world();
+    memory = result.memory();
     completedDays = day;
     reset();
     return record;
@@ -125,7 +140,7 @@ public final class BattleSession {
   }
 
   private void current(int day) {
-    if (completedDays >= 60) throw new StoreProblem(StoreProblem.Kind.LIMIT, "M2 每场实验最多 60 天");
+    if (completedDays >= 60) throw new StoreProblem(StoreProblem.Kind.LIMIT, "每场实验最多 60 天");
     if (day != completedDays + 1) throw conflict("天数已变化，请重新载入；不能修改过去或未来的命令");
   }
 

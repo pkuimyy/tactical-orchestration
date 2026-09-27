@@ -193,6 +193,33 @@ class ScenarioServiceTest {
   }
 
   @Test
+  void doctrinePersistsAcrossDaysAndManifestIncludesPriorKnowledge() {
+    var session = new BattleSession(playable(), 42, 4);
+    var doctrine = new Doctrine(1, Doctrine.Template.HOLD, 17, "known-later");
+    session.submit(
+        1,
+        Side.BLUE,
+        0,
+        List.of(
+            new MovementOrder(
+                "defend", "blue", List.of(), MovementOrder.Action.DEFEND, null, doctrine)));
+    session.submit(1, Side.RED, 0, List.of());
+    session.commit(1, Side.BLUE, 1);
+    session.commit(1, Side.RED, 1);
+    var first = session.resolve(1);
+    assertEquals(doctrine, session.view().memory().get("blue").doctrine());
+    assertNotEquals(doctrine, first.manifest().memory().get("blue").doctrine());
+    for (var side : Side.values()) {
+      session.submit(2, side, 0, List.of());
+      session.commit(2, side, 1);
+    }
+    var second = session.resolve(2);
+    assertEquals(doctrine, second.manifest().memory().get("blue").doctrine());
+    assertEquals(doctrine, second.result().memory().get("blue").doctrine());
+    assertEquals(second, session.resolve(2));
+  }
+
+  @Test
   void resourceLimitsAreEnforcedAndEmptyDraftCannotFreeze() {
     var service = new ScenarioService();
     var draft = service.create("empty", 2, 2);

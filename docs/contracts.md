@@ -3,11 +3,11 @@
 HTTP 主版本前缀为 `/api/v1`，场景、运行清单和 JSONL 事件使用整数
 `schemaVersion: 1`；命令批次结构由 HTTP 主版本和清单中的规则版本约束。不兼容的字段或语义改变必须提升主版本；新增可选字段保持兼容。
 未知 schemaVersion 返回 400，不推测或自动迁移。规则版本独立于接口版本，
-当前规则版本为 `m2-wego-1`。
+当前规则版本为 `m3-combat-1`。
 
 `/contracts/validate` 仍只校验包络元信息：`schemaVersion`、`kind`（SCENARIO/COMMAND/EVENT）、
 `id`（1–64 位 ASCII 字母、数字、下划线或短横线）。这是无副作用的契约检查，
-不是场景创建或命令提交。M1 的场景、版本和实验资源见 [m1-scenarios.md](m1-scenarios.md)，M2 的命令生命周期与事件语义见 [m2-wego.md](m2-wego.md)。
+不是场景创建或命令提交。M1 的场景、版本和实验资源见 [m1-scenarios.md](m1-scenarios.md)，命令生命周期见 [m2-wego.md](m2-wego.md)，M3 行动／学说及战损扩展见 [m3-combat.md](m3-combat.md)。
 命令批次用日期、乐观版本和内容保证提交重试幂等；结算按实例与日期幂等。
 
 统一应用错误为 `{"schemaVersion":1,"code":"INVALID_REQUEST","message":"..."}`。

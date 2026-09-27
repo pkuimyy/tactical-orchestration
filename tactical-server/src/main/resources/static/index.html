@@ -13,7 +13,7 @@
         <span class="brand-mark">策</span>
         <div>
           <h1>战术编排</h1>
-          <span class="eyebrow">TACTICAL ORCHESTRATION · M2</span>
+          <span class="eyebrow">TACTICAL ORCHESTRATION · M3</span>
         </div>
       </div>
       <nav class="header-tabs" aria-label="主导航">
@@ -39,6 +39,7 @@
       ><button id="new-scenario" class="secondary" data-auth>新建战场</button
       ><button id="preset" data-auth>河谷突破</button
       ><button id="preset-recon" class="secondary" data-auth>追击验证</button
+      ><button id="preset-combat" class="secondary" data-auth>混编防线</button
       ><button id="reload" class="secondary" data-auth>重新载入</button
       ><button id="export" class="secondary" data-draft>导出</button
       ><label class="file-button"
@@ -265,19 +266,72 @@
         <p id="side-status" class="hint"></p>
         <label>指挥团<select id="order-unit"></select></label>
         <p id="order-unit-info" class="hint"></p>
-        <div class="route-box">
-          <h3>行军路线</h3>
-          <p id="order-route">
-            选择团后，依次点击相邻地图格。空路线为原地待命。
+        <nav class="turn-tabs" aria-label="推演面板">
+          <button data-turn-tab="action-page" aria-pressed="true">命令</button
+          ><button data-turn-tab="doctrine-page" aria-pressed="false">
+            学说</button
+          ><button data-turn-tab="report-page" aria-pressed="false">
+            战况
+          </button>
+        </nav>
+        <section id="action-page" class="turn-page">
+          <label
+            >行动<select id="order-action">
+              <option value="MOVE">前进／接敌</option>
+              <option value="DEFEND">展开防御</option>
+              <option value="BOMBARD">远距炮击</option>
+              <option value="REST">原地休整</option>
+            </select></label
+          >
+          <div class="route-box">
+            <h3>行动目标</h3>
+            <p id="order-route">选择团后，依次点击相邻地图格。</p>
+          </div>
+          <div class="toolbar">
+            <button id="route-undo" class="secondary">撤销一步</button
+            ><button id="route-clear" class="secondary">清空目标</button>
+          </div>
+          <p class="hint">
+            前进逐格规划；炮击点击目标格；休整须在有库存的己方补给点且当日未受火力。
           </p>
-        </div>
-        <div class="toolbar">
-          <button id="route-undo" class="secondary">撤销一步</button
-          ><button id="route-clear" class="secondary">原地待命</button>
-        </div>
-        <p class="hint">
-          未下令部队原地待命。地形通行、速度与遭遇由结算决定。城市师部固定。
-        </p>
+        </section>
+        <section id="doctrine-page" class="turn-page" hidden>
+          <label
+            >默认学说<select id="doctrine-template">
+              <option value="ADVANCE">常规前进 · 低组织度时撤退</option>
+              <option value="BREAKTHROUGH">装甲突破 · 失败撤回补给点</option>
+              <option value="HOLD">坚守 · 不主动撤退</option>
+            </select></label
+          >
+          <label
+            >组织度低于此百分比时撤退<input
+              id="doctrine-threshold"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+          /></label>
+          <label>覆写撤退目标<select id="doctrine-supply"></select></label>
+          <p id="doctrine-knowledge" class="hint"></p>
+          <p class="hint">
+            只从本团已知补给点选路。没有可达目标则原地防御。参数随命令提交，并保留到后续日期。
+          </p>
+        </section>
+        <section id="report-page" class="turn-page" hidden>
+          <label>战况档案<select id="report-unit"></select></label>
+          <p id="report-position" class="hint"></p>
+          <table class="company-report">
+            <thead>
+              <tr>
+                <th>连队／装备</th>
+                <th>HP 前→后</th>
+                <th>组织度</th>
+              </tr>
+            </thead>
+            <tbody id="company-report"></tbody>
+          </table>
+          <p id="report-doctrine" class="hint"></p>
+        </section>
         <div class="turn-actions">
           <button id="submit-orders">提交本方命令</button
           ><button id="commit-orders" class="secondary">确认并锁定</button>
@@ -335,7 +389,7 @@
           双方均须提交并确认；重复结算请求不会多推进一天。
         </p>
         <p class="hint">
-          当前为移动／接敌推演；接触时保持位置，战损与战斗处置将在后续加入。
+          战损按连结算。点击指挥记录查看火力、战损和学说依据；「战况」查看结算前后对比。
         </p>
       </section>
       <section class="journal panel">
@@ -379,6 +433,14 @@
         ><button id="library-next" class="secondary">›</button>
       </div>
     </section>
+    <dialog id="event-dialog">
+      <h2>行动与决策依据</h2>
+      <p id="event-summary"></p>
+      <pre id="event-detail"></pre>
+      <button type="button" class="secondary" data-close="event-dialog">
+        关闭
+      </button>
+    </dialog>
     <dialog id="rename-dialog">
       <form id="rename-form">
         <h2>重命名战场</h2>

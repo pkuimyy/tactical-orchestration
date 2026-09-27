@@ -64,7 +64,7 @@ class HttpBoundaryTest {
     assertEquals(401, request("/api/v1/system?token=" + token, "GET", "", null).statusCode());
     var response = request("/api/v1/system", "GET", "", "Bearer " + token);
     assertEquals(200, response.statusCode());
-    assertTrue(response.body().contains("M2"));
+    assertTrue(response.body().contains("M3"));
     assertEquals("no-store", response.headers().firstValue("Cache-Control").orElseThrow());
   }
 

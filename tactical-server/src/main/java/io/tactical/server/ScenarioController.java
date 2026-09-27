@@ -145,6 +145,28 @@ final class ScenarioController {
             Scenario.class);
   }
 
+  @GetMapping("/presets/combat-line")
+  Scenario combatPreset() throws IOException {
+    return new ObjectMapper()
+        .readValue(
+            new ClassPathResource("scenarios/m3-combat-line.json").getContentAsByteArray(),
+            Scenario.class);
+  }
+
+  @GetMapping("/rules/company-profiles")
+  java.util.Map<Scenario.CompanyType, io.tactical.simulation.CombatRules.Profile>
+      companyProfiles() {
+    var profiles =
+        new java.util.EnumMap<Scenario.CompanyType, io.tactical.simulation.CombatRules.Profile>(
+            Scenario.CompanyType.class);
+    for (var type : Scenario.CompanyType.values())
+      profiles.put(
+          type,
+          io.tactical.simulation.CombatRules.profile(
+              new Scenario.Company("profile", type, Scenario.Equipment.FOOT, 100, 100)));
+    return profiles;
+  }
+
   record Rename(@Min(1) long expectedVersion, @NotBlank @Size(max = 80) String name) {}
 
   record Archive(@Min(1) long expectedVersion, boolean archived) {}

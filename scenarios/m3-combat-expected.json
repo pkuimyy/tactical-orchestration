@@ -1,0 +1,8 @@
+{
+  "rulesVersion": "m3-combat-1",
+  "stateHash": "febdd5f1772df5db9516ed865d70a1fba25a33b08d44efaab468f0813016f76c",
+  "eventsSha256": "27e20590826451169b1c9e098336df719ff1be87c4ae1478af2f0b1df9e9d6d9",
+  "eventCount": 21,
+  "assaultPosition": {"q": 1, "r": 1},
+  "assaultInfantryHp": 87
+}

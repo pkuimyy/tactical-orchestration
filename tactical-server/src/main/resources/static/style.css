@@ -1006,3 +1006,68 @@ dialog .section-heading button {
 #events li[data-event-id] {
   cursor: pointer;
 }
+
+.turn-panel {
+  gap: 9px;
+}
+#order-unit-info {
+  min-height: 18px;
+}
+.turn-tabs {
+  display: flex;
+  gap: 5px;
+}
+.turn-tabs button {
+  flex: 1;
+  background: #102028;
+  color: var(--ink);
+  border-color: var(--border);
+}
+.turn-tabs button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.turn-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+.turn-page .route-box {
+  min-height: 100px;
+}
+.company-report {
+  border-collapse: collapse;
+  font-size: 11px;
+  width: 100%;
+}
+.company-report th,
+.company-report td {
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  padding: 7px 3px;
+}
+#report-doctrine {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#event-dialog {
+  width: 660px;
+}
+#event-detail {
+  white-space: pre-wrap;
+  line-height: 1.8;
+  max-height: 55vh;
+  overflow: auto;
+}
+#turn-panel:has(#report-page:not([hidden])) > label,
+#turn-panel:has(#report-page:not([hidden])) > #order-unit-info,
+#turn-panel:has(#report-page:not([hidden])) > .turn-actions {
+  display: none;
+}
+.company-report th,
+.company-report td {
+  padding: 5px 3px;
+}

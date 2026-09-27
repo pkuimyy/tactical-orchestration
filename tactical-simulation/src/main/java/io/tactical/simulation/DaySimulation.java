@@ -28,31 +28,109 @@ public final class DaySimulation {
       HexCoord from,
       HexCoord to,
       List<String> participants,
-      String reason) {
+      String reason,
+      BattleRuntime.Damage damage,
+      DoctrinePlanner.Decision decision,
+      BattleRuntime.StockChange stock) {
     public Event {
       participants = List.copyOf(participants);
     }
   }
 
-  public record Result(int day, Scenario world, String stateHash, List<Event> events) {
+  public record Result(
+      int day,
+      Scenario world,
+      String stateHash,
+      List<Event> events,
+      Map<String, RegimentMemory> memory,
+      List<UnitReport> units) {
     public Result {
       events = List.copyOf(events);
+      memory = Collections.unmodifiableMap(new TreeMap<>(memory));
+      units = List.copyOf(units);
     }
+  }
+
+  public record CompanyReport(
+      String id,
+      CompanyType type,
+      Equipment equipment,
+      int maxHp,
+      int beforeHp,
+      int hp,
+      int organization) {}
+
+  public record UnitReport(
+      String id,
+      String name,
+      HexCoord before,
+      HexCoord after,
+      boolean destroyed,
+      int organization,
+      List<CompanyReport> companies) {
+    public UnitReport {
+      companies = List.copyOf(companies);
+    }
+  }
+
+  public static List<UnitReport> reports(Scenario before, Scenario after) {
+    return before.regiments().stream()
+        .map(
+            r -> {
+              var now = after.regiments().stream().filter(n -> n.id().equals(r.id())).findFirst();
+              var companies =
+                  r.companies().stream()
+                      .map(
+                          c -> {
+                            var next =
+                                now.flatMap(
+                                        n ->
+                                            n.companies().stream()
+                                                .filter(v -> v.id().equals(c.id()))
+                                                .findFirst())
+                                    .orElse(
+                                        new Company(c.id(), c.type(), c.equipment(), c.maxHp(), 0));
+                            return new CompanyReport(
+                                c.id(),
+                                c.type(),
+                                c.equipment(),
+                                c.maxHp(),
+                                c.hp(),
+                                next.hp(),
+                                CombatRules.organization(next));
+                          })
+                      .toList();
+              return new UnitReport(
+                  r.id(),
+                  r.name(),
+                  r.position(),
+                  now.map(Regiment::position).orElse(null),
+                  now.isEmpty(),
+                  now.map(CombatRules::organization).orElse(0),
+                  companies);
+            })
+        .sorted(Comparator.comparing(UnitReport::id))
+        .toList();
   }
 
   private static final class Task {
     final MovementOrder order;
-    final Regiment regiment;
+    Regiment regiment;
+    List<HexCoord> route;
+    boolean withdrawing;
     int step, arrival, speed;
     boolean stopped;
 
     Task(MovementOrder order, Regiment regiment) {
       this.order = order;
       this.regiment = regiment;
+      this.route = order.route();
     }
 
     HexCoord target() {
-      return order.route().get(step);
+      return order.action() == MovementOrder.Action.BOMBARD && !withdrawing
+          ? order.target()
+          : route.get(step);
     }
   }
 
@@ -72,6 +150,17 @@ public final class DaySimulation {
       if (r.side() != side) throw new ScenarioViolation("不得向另一方部队下令");
       if (r.role() == Role.DIVISION_HQ && !o.route().isEmpty())
         throw new ScenarioViolation("城市师部不可移动");
+      if (o.action() == MovementOrder.Action.BOMBARD) {
+        if (o.target().q() < 0
+            || o.target().q() >= world.width()
+            || o.target().r() < 0
+            || o.target().r() >= world.height()
+            || r.position().distance(o.target()) < 1
+            || r.position().distance(o.target()) > 3
+            || r.companies().stream()
+                .noneMatch(c -> c.hp() > 0 && c.type() == CompanyType.ARTILLERY))
+          throw new ScenarioViolation("炮击需要有效炮兵连及 1–3 格内的目标");
+      }
       var from = r.position();
       for (var to : o.route()) {
         if (to.q() < 0
@@ -92,6 +181,17 @@ public final class DaySimulation {
       int maxIterations,
       List<MovementOrder> blue,
       List<MovementOrder> red) {
+    return resolve(input, day, seed, maxIterations, blue, red, RegimentMemory.initial(input));
+  }
+
+  public Result resolve(
+      Scenario input,
+      int day,
+      long seed,
+      int maxIterations,
+      List<MovementOrder> blue,
+      List<MovementOrder> red,
+      Map<String, RegimentMemory> memory) {
     if (day < 1 || maxIterations < 1 || maxIterations > 8)
       throw new ScenarioViolation("天数须为正数，事件迭代上限为 1–8");
     var commands = new ArrayList<>(validate(input, Side.BLUE, blue));
@@ -103,6 +203,7 @@ public final class DaySimulation {
     // Common environmental departure delay cannot reverse any relative movement advantage.
     int departure = Integer.parseInt(key(seed, day, "environment").substring(0, 2), 16) % 4;
     int deadline = departure + maxIterations * 15;
+    var battle = new BattleRuntime(input, positions, memory, commands, events, day, departure);
     for (var o : commands) {
       var r =
           input.regiments().stream()
@@ -123,7 +224,8 @@ public final class DaySimulation {
           positions.get(r.id()),
           List.of(r.id()),
           "双方命令已锁定");
-      schedule(input, positions, t, departure, day, 0, events);
+      if (o.action() == MovementOrder.Action.BOMBARD) t.arrival = departure + 15;
+      else schedule(input, positions, t, departure, day, 0, events);
     }
     for (int iteration = 1; iteration <= maxIterations; iteration++) {
       int horizon = departure + iteration * 15;
@@ -135,13 +237,18 @@ public final class DaySimulation {
                 .min()
                 .orElse(Integer.MAX_VALUE);
         if (tick > horizon) break;
-        List<Task> due =
+        List<Task> allDue =
             tasks.stream()
                 .filter(t -> !t.stopped && t.arrival == tick)
                 .sorted(
                     Comparator.comparing(
                         t -> key(seed, day, "schedule:" + tick + ":" + t.regiment.id())))
                 .toList();
+        var bombs =
+            allDue.stream()
+                .filter(t -> t.order.action() == MovementOrder.Action.BOMBARD && !t.withdrawing)
+                .toList();
+        var due = allDue.stream().filter(t -> !bombs.contains(t)).toList();
         Map<String, Task> moving = new TreeMap<>();
         due.forEach(t -> moving.put(t.regiment.id(), t));
         Map<HexCoord, List<Task>> targets = new HashMap<>();
@@ -229,9 +336,130 @@ public final class DaySimulation {
         for (var t : due) if (!t.stopped) positions.put(t.regiment.id(), t.target());
         for (var t : due)
           if (!t.stopped) {
+            battle.moved(t.regiment.id());
             t.step++;
-            schedule(input, positions, t, tick, day, iteration, events);
           }
+        Set<BattleRuntime.Pair> contacts = new HashSet<>();
+        participants.forEach(
+            (id, peers) ->
+                peers.stream()
+                    .filter(p -> !p.equals(id))
+                    .forEach(
+                        p ->
+                            contacts.add(
+                                id.compareTo(p) < 0
+                                    ? new BattleRuntime.Pair(
+                                        id,
+                                        p,
+                                        "CONTESTED".equals(blocked.get(id))
+                                                && moving.containsKey(p)
+                                                && moving
+                                                    .get(id)
+                                                    .target()
+                                                    .equals(moving.get(p).target())
+                                            ? moving.get(id).target()
+                                            : null)
+                                    : new BattleRuntime.Pair(
+                                        p,
+                                        id,
+                                        "CONTESTED".equals(blocked.get(id))
+                                                && moving.containsKey(p)
+                                                && moving
+                                                    .get(id)
+                                                    .target()
+                                                    .equals(moving.get(p).target())
+                                            ? moving.get(id).target()
+                                            : null))));
+        battle.fight(contacts, bombs.stream().map(t -> t.order).toList(), tick);
+        for (var t : tasks) {
+          if (!battle.alive(t.regiment.id())) t.stopped = true;
+          else {
+            t.regiment = battle.regiment(t.regiment.id());
+            if (battle.lastEngaged.contains(t.regiment.id())) t.stopped = true;
+          }
+        }
+        for (var t : bombs) {
+          t.stopped = true;
+          emit(
+              events,
+              day,
+              iteration,
+              tick,
+              t,
+              "OrderTransition",
+              "COMPLETED",
+              t.regiment.position(),
+              t.order.target(),
+              List.of(t.regiment.id()),
+              "炮击行动结束");
+        }
+        for (var t : due)
+          if (battle.alive(t.regiment.id())
+              && blocked.containsKey(t.regiment.id())
+              && !positions.containsValue(t.target())
+              && targets.get(t.target()).stream().filter(v -> battle.alive(v.regiment.id())).count()
+                  == 1
+              && participants.get(t.regiment.id()).stream()
+                  .anyMatch(id -> battle.units.get(id).side() != t.regiment.side())) {
+            var from = positions.get(t.regiment.id());
+            var to = t.target();
+            positions.put(t.regiment.id(), to);
+            battle.moved(t.regiment.id());
+            emit(
+                events,
+                day,
+                iteration,
+                tick,
+                t,
+                "WorldEvent",
+                "ADVANCED",
+                from,
+                to,
+                List.of(t.regiment.id()),
+                "守军被歼灭或驱离，唯一存活进攻团进入目标格");
+            emit(
+                events,
+                day,
+                iteration,
+                tick,
+                t,
+                "OrderTransition",
+                t.step + 1 == t.route.size() ? "COMPLETED" : "DEFERRED",
+                from,
+                to,
+                List.of(t.regiment.id()),
+                "交战后停止本日进攻；如有剩余路线需次日重新下令");
+          }
+        Set<Task> newWithdrawals = new HashSet<>();
+        for (var id : battle.lastEngaged)
+          if (battle.alive(id)) {
+            Task t =
+                tasks.stream().filter(v -> v.regiment.id().equals(id)).findFirst().orElse(null);
+            if (t != null && t.withdrawing) continue;
+            boolean failed =
+                t != null && blocked.containsKey(id) && !positions.get(id).equals(t.target());
+            var decision = battle.decision(id, failed, tick);
+            if (decision.action().equals("WITHDRAW")) {
+              if (t == null) {
+                t =
+                    new Task(
+                        new MovementOrder(
+                            "default-" + Integer.toUnsignedString(id.hashCode()), id, List.of()),
+                        battle.regiment(id));
+                tasks.add(t);
+              }
+              t.regiment = battle.regiment(id);
+              t.route = decision.route();
+              t.step = 0;
+              t.withdrawing = true;
+              newWithdrawals.add(t);
+              t.stopped = false;
+              schedule(input, positions, t, tick, day, iteration, events);
+            }
+          }
+        for (var t : due)
+          if (!t.stopped && !newWithdrawals.contains(t))
+            schedule(input, positions, t, tick, day, iteration, events);
       }
     }
     for (var t : tasks)
@@ -248,31 +476,48 @@ public final class DaySimulation {
             t.target(),
             List.of(t.regiment.id()),
             "达到当日迭代上限；剩余路径需次日重新下令");
-    var regiments =
-        input.regiments().stream()
-            .map(
-                r ->
-                    new Regiment(
-                        r.id(),
-                        r.name(),
-                        r.side(),
-                        r.role(),
-                        positions.get(r.id()),
-                        r.brigadeId(),
-                        r.companies()))
-            .toList();
-    Scenario world =
-        ScenarioRules.normalize(
-            new Scenario(
-                input.schemaVersion(),
-                input.name(),
-                input.width(),
-                input.height(),
-                input.cells(),
-                input.edges(),
-                regiments,
-                input.supplies()));
-    return new Result(day, world, digest(day + ":" + ScenarioHash.sha256(world)), events);
+    battle.rest(deadline);
+    Scenario world = battle.world();
+    return new Result(
+        day,
+        world,
+        stateHash(day, world, battle.memory),
+        events,
+        battle.memory,
+        reports(input, world));
+  }
+
+  public static String stateHash(int day, Scenario world, Map<String, RegimentMemory> memory) {
+    var text = new StringBuilder(day + ":" + ScenarioHash.runtime(world));
+    new TreeMap<>(memory)
+        .forEach(
+            (id, m) -> {
+              var d = m.doctrine();
+              text.append("\n")
+                  .append(id)
+                  .append('|')
+                  .append(d.schemaVersion())
+                  .append('|')
+                  .append(d.template())
+                  .append('|')
+                  .append(d.withdrawBelowPercent())
+                  .append('|')
+                  .append(d.supplyId());
+              for (var k : m.supplies())
+                text.append(";")
+                    .append(k.id())
+                    .append('|')
+                    .append(k.position().q())
+                    .append('|')
+                    .append(k.position().r())
+                    .append('|')
+                    .append(k.side())
+                    .append('|')
+                    .append(k.stock())
+                    .append('|')
+                    .append(k.observedDay());
+            });
+    return digest(text.toString());
   }
 
   private static void schedule(
@@ -284,8 +529,23 @@ public final class DaySimulation {
       int iteration,
       List<Event> events) {
     HexCoord from = positions.get(t.regiment.id());
-    if (t.step == t.order.route().size()) {
+    if (t.step == t.route.size()) {
       t.stopped = true;
+      if (t.order.action() == MovementOrder.Action.REST && !t.withdrawing) {
+        emit(
+            events,
+            day,
+            iteration,
+            tick,
+            t,
+            "OrderTransition",
+            "WAITING",
+            from,
+            from,
+            List.of(t.regiment.id()),
+            "等待当日火力与补给条件确认");
+        return;
+      }
       emit(
           events,
           day,
@@ -297,7 +557,7 @@ public final class DaySimulation {
           from,
           from,
           List.of(t.regiment.id()),
-          t.order.route().isEmpty() ? "原地待命" : "到达路径终点");
+          t.route.isEmpty() ? "原地待命" : "到达路径终点");
       return;
     }
     int speed = Mobility.speed(input, t.regiment, from, t.target());
@@ -358,7 +618,10 @@ public final class DaySimulation {
             from,
             to,
             participants,
-            reason));
+            reason,
+            null,
+            null,
+            null));
   }
 
   private static String key(long seed, int day, String domain) {

@@ -11,7 +11,14 @@ public final class ScenarioHash {
   private ScenarioHash() {}
 
   public static String sha256(Scenario input) {
-    Scenario s = ScenarioRules.normalize(input);
+    return encode(ScenarioRules.normalize(input));
+  }
+
+  public static String runtime(Scenario input) {
+    return encode(ScenarioRules.normalizeRuntime(input));
+  }
+
+  private static String encode(Scenario s) {
     try {
       var bytes = new ByteArrayOutputStream();
       var out = new DataOutputStream(bytes);
