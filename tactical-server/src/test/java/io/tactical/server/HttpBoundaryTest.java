@@ -64,8 +64,46 @@ class HttpBoundaryTest {
     assertEquals(401, request("/api/v1/system?token=" + token, "GET", "", null).statusCode());
     var response = request("/api/v1/system", "GET", "", "Bearer " + token);
     assertEquals(200, response.statusCode());
-    assertTrue(response.body().contains("M1"));
+    assertTrue(response.body().contains("M2"));
     assertEquals("no-store", response.headers().firstValue("Cache-Control").orElseThrow());
+  }
+
+  @Test
+  void movementRoutesAreCodeDocumentedAndInputsBounded() throws Exception {
+    var spec = request("/api/v1/openapi", "GET", "", "Bearer " + token).body();
+    for (var path :
+        new String[] {
+          "/api/v1/games/{id}/turn",
+          "/api/v1/games/{id}/orders/{side}",
+          "/api/v1/games/{id}/commit/{side}",
+          "/api/v1/games/{id}/resolve",
+          "/api/v1/games/{id}/days/{day}/events",
+          "/api/v1/scenarios/{id}/copy"
+        }) assertTrue(spec.contains(path), path);
+    assertTrue(spec.contains("MovementOrder"));
+    assertTrue(spec.contains("Manifest"));
+    assertEquals(
+        200, request("/api/v1/presets/recon-pursuit", "GET", "", "Bearer " + token).statusCode());
+    assertEquals(
+        400,
+        request(
+                "/api/v1/games",
+                "POST",
+                "{\"revisionId\":\"unused\",\"seed\":42,\"maxIterations\":9}",
+                "Bearer " + token)
+            .statusCode());
+    assertEquals(
+        400,
+        request("/api/v1/games/unused/resolve", "POST", "{\"day\":0}", "Bearer " + token)
+            .statusCode());
+    assertEquals(
+        400,
+        request(
+                "/api/v1/games/unused/orders/BLUE",
+                "PUT",
+                "{\"day\":1,\"expectedVersion\":0,\"orders\":[{\"orderId\":\"invalid id\",\"regimentId\":\"a\",\"route\":[]}]}",
+                "Bearer " + token)
+            .statusCode());
   }
 
   @Test

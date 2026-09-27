@@ -1,0 +1,476 @@
+{
+  "schemaVersion": 1,
+  "name": "M2 侦察脱离追击",
+  "width": 16,
+  "height": 3,
+  "cells": [
+    {
+      "position": {
+        "q": 0,
+        "r": 0
+      },
+      "terrain": "CITY",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 8,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 8,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 8,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 9,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 9,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 9,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 10,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 10,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 10,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 11,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 11,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 11,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 12,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 12,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 12,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 13,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 13,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 13,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 14,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 14,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 14,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 15,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 15,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 15,
+        "r": 2
+      },
+      "terrain": "CITY",
+      "fortification": 0
+    }
+  ],
+  "edges": [],
+  "regiments": [
+    {
+      "id": "blue-hq",
+      "name": "蓝方师部",
+      "side": "BLUE",
+      "role": "DIVISION_HQ",
+      "position": {
+        "q": 0,
+        "r": 0
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "blue-hq-c1",
+          "type": "SIGNAL",
+          "equipment": "FOOT",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "red-hq",
+      "name": "红方师部",
+      "side": "RED",
+      "role": "DIVISION_HQ",
+      "position": {
+        "q": 15,
+        "r": 2
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "red-hq-c1",
+          "type": "SIGNAL",
+          "equipment": "FOOT",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "recon",
+      "name": "机械化侦察团",
+      "side": "BLUE",
+      "role": "REGIMENT",
+      "position": {
+        "q": 1,
+        "r": 1
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "recon-c1",
+          "type": "RECON",
+          "equipment": "MECHANIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "armor",
+      "name": "装甲追击团",
+      "side": "RED",
+      "role": "REGIMENT",
+      "position": {
+        "q": 0,
+        "r": 1
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "armor-c1",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    }
+  ],
+  "supplies": []
+}

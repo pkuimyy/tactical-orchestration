@@ -1,9 +1,11 @@
 package io.tactical.server;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.tactical.application.BattleSession;
 import io.tactical.application.ScenarioService;
 import io.tactical.application.ScenarioService.*;
 import io.tactical.application.StoreProblem;
+import io.tactical.core.MovementOrder;
 import io.tactical.core.Scenario;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -109,11 +111,12 @@ final class ScenarioController {
 
   @PostMapping("/games")
   @ResponseStatus(HttpStatus.CREATED)
-  @Operation(
-      summary =
-          "Create an independent READY instance from frozen input; M1 does not simulate turns")
+  @Operation(summary = "Create an independent planning instance from immutable frozen input")
   Game createGame(@Valid @RequestBody CreateGame request) {
-    return service.createGame(request.revisionId(), request.seed());
+    return service.createGame(
+        request.revisionId(),
+        request.seed(),
+        request.maxIterations() == null ? 4 : request.maxIterations());
   }
 
   @GetMapping("/games/{id}")
@@ -134,6 +137,14 @@ final class ScenarioController {
             Scenario.class);
   }
 
+  @GetMapping("/presets/recon-pursuit")
+  Scenario pursuitPreset() throws IOException {
+    return new ObjectMapper()
+        .readValue(
+            new ClassPathResource("scenarios/m2-recon-pursuit.json").getContentAsByteArray(),
+            Scenario.class);
+  }
+
   record Rename(@Min(1) long expectedVersion, @NotBlank @Size(max = 80) String name) {}
 
   record Archive(@Min(1) long expectedVersion, boolean archived) {}
@@ -147,5 +158,60 @@ final class ScenarioController {
 
   record Version(@Min(1) long expectedVersion) {}
 
-  record CreateGame(@NotBlank @Size(max = 64) String revisionId, long seed) {}
+  record CreateGame(
+      @NotBlank @Size(max = 64) String revisionId,
+      long seed,
+      @Min(1) @Max(8) Integer maxIterations) {}
+
+  @GetMapping("/games/{id}/turn")
+  BattleSession.View turn(@PathVariable String id) {
+    return service.turn(id);
+  }
+
+  @PutMapping("/games/{id}/orders/{side}")
+  BattleSession.View orders(
+      @PathVariable String id,
+      @PathVariable Scenario.Side side,
+      @Valid @RequestBody SubmitOrders request) {
+    return service.submit(id, request.day(), side, request.expectedVersion(), request.orders());
+  }
+
+  @PostMapping("/games/{id}/commit/{side}")
+  BattleSession.View commit(
+      @PathVariable String id,
+      @PathVariable Scenario.Side side,
+      @Valid @RequestBody CommitOrders request) {
+    return service.commit(id, request.day(), side, request.expectedVersion());
+  }
+
+  @PostMapping("/games/{id}/resolve")
+  BattleSession.Day resolve(@PathVariable String id, @Valid @RequestBody ResolveDay request) {
+    return service.resolve(id, request.day());
+  }
+
+  @GetMapping("/games/{id}/days/{day}")
+  BattleSession.Day day(@PathVariable String id, @PathVariable @Min(1) int day) {
+    return service.day(id, day);
+  }
+
+  @GetMapping(value = "/games/{id}/days/{day}/events", produces = "application/x-ndjson")
+  @Operation(
+      summary = "Stable WorldEvent / OrderTransition JSONL; IDs contain no game UUID or wall clock")
+  String events(@PathVariable String id, @PathVariable @Min(1) int day) {
+    var mapper = new ObjectMapper();
+    var events = service.day(id, day).result().events();
+    if (events.isEmpty()) return "";
+    return events.stream()
+        .map(mapper::writeValueAsString)
+        .collect(java.util.stream.Collectors.joining("\n", "", "\n"));
+  }
+
+  record SubmitOrders(
+      @Min(1) @Max(60) int day,
+      @Min(0) long expectedVersion,
+      @NotNull @Size(max = 32) List<MovementOrder> orders) {}
+
+  record CommitOrders(@Min(1) @Max(60) int day, @Min(1) long expectedVersion) {}
+
+  record ResolveDay(@Min(1) @Max(60) int day) {}
 }

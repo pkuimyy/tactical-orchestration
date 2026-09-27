@@ -911,3 +911,98 @@ dialog .section-heading button {
     gap: 4px;
   }
 }
+
+.game-actions {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  display: flex;
+  gap: 4px;
+}
+.game-actions button {
+  grid-area: auto;
+}
+.turn-panel {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+}
+.turn-operations {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.side-picker,
+.turn-actions,
+.turn-locks {
+  display: flex;
+  gap: 10px;
+}
+.side-picker button {
+  flex: 1;
+  background: #182a32;
+  color: var(--ink);
+  border-color: var(--border);
+}
+#side-blue[aria-pressed="true"] {
+  background: #2b5269;
+  border-color: var(--blue);
+}
+#side-red[aria-pressed="true"] {
+  background: #683e36;
+  border-color: var(--red);
+}
+.route-box {
+  background: #101c23;
+  padding: 14px;
+  border: 1px solid var(--border);
+  min-height: 110px;
+}
+#order-route {
+  margin-top: 10px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+#order-unit-info {
+  min-height: 45px;
+}
+.turn-actions {
+  margin-top: auto;
+}
+.turn-locks {
+  align-items: center;
+}
+.turn-locks div {
+  padding: 14px;
+  border: 1px solid var(--border);
+  min-width: 230px;
+}
+#blue-lock {
+  border-left: 3px solid var(--blue);
+}
+#red-lock {
+  border-left: 3px solid var(--red);
+}
+#resolve-day {
+  margin-left: auto;
+  padding: 12px 28px;
+}
+#battle-bar label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#battle-bar select {
+  width: 120px;
+  margin: 0;
+}
+#events li[data-event-id] {
+  cursor: pointer;
+}

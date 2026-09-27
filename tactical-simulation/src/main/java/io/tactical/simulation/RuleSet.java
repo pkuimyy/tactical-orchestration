@@ -1,8 +1,8 @@
 package io.tactical.simulation;
 
-/** No simulation is exposed until M2; this identifies the M1 scenario baseline. */
+/** Versioned experimental movement, scheduling and symmetric contact rules. */
 public final class RuleSet {
-  public static final String VERSION = "m1-scenario-1";
+  public static final String VERSION = "m2-wego-1";
 
   private RuleSet() {}
 }

@@ -4,10 +4,14 @@ import io.tactical.core.*;
 import io.tactical.simulation.RuleSet;
 import java.util.*;
 
-/** In-memory M1 repository: immutable values, atomic version checks, bounded resource use. */
+/**
+ * In-memory scenario and game repository: immutable values, atomic version checks, bounded resource
+ * use.
+ */
 public final class ScenarioService {
   private final Map<String, Draft> drafts = new LinkedHashMap<>();
   private final Map<String, Revision> revisions = new LinkedHashMap<>();
+  private final Map<String, BattleSession> battles = new HashMap<>();
   private final Map<String, Game> games = new LinkedHashMap<>();
   private final Deque<EditEvent> events = new ArrayDeque<>();
   private long sequence;
@@ -181,7 +185,12 @@ public final class ScenarioService {
   }
 
   public synchronized Game createGame(String revisionId, long seed) {
+    return createGame(revisionId, seed, 4);
+  }
+
+  public synchronized Game createGame(String revisionId, long seed, int maxIterations) {
     Revision revision = revision(revisionId);
+    var battle = new BattleSession(revision.scenario(), seed, maxIterations);
     limit(games.size(), 128, "实验实例");
     Game game =
         new Game(
@@ -191,20 +200,61 @@ public final class ScenarioService {
             RuleSet.VERSION,
             seed,
             0,
-            "READY",
+            "PLANNING",
             revision.scenario());
     games.put(game.id(), game);
+    battles.put(game.id(), battle);
     event("GAME_CREATED", revision.scenarioId(), game.id(), game.contentHash());
     return game;
   }
 
   public synchronized Game game(String id) {
-    return require(games, id, "实验实例");
+    Game original = require(games, id, "实验实例");
+    var view = battles.get(id).view();
+    return new Game(
+        original.id(),
+        original.revisionId(),
+        original.contentHash(),
+        original.rulesVersion(),
+        original.seed(),
+        view.day() - 1,
+        view.status(),
+        original.initialState());
   }
 
   public synchronized List<Game> games(String revisionId) {
     revision(revisionId);
-    return games.values().stream().filter(g -> g.revisionId().equals(revisionId)).toList();
+    return games.values().stream()
+        .filter(g -> g.revisionId().equals(revisionId))
+        .map(g -> game(g.id()))
+        .toList();
+  }
+
+  public synchronized BattleSession.View turn(String id) {
+    game(id);
+    return battles.get(id).view();
+  }
+
+  public synchronized BattleSession.View submit(
+      String id, int day, Scenario.Side side, long expectedVersion, List<MovementOrder> orders) {
+    game(id);
+    return battles.get(id).submit(day, side, expectedVersion, orders);
+  }
+
+  public synchronized BattleSession.View commit(
+      String id, int day, Scenario.Side side, long expectedVersion) {
+    game(id);
+    return battles.get(id).commit(day, side, expectedVersion);
+  }
+
+  public synchronized BattleSession.Day resolve(String id, int day) {
+    game(id);
+    return battles.get(id).resolve(day);
+  }
+
+  public synchronized BattleSession.Day day(String id, int day) {
+    game(id);
+    return battles.get(id).day(day);
   }
 
   public synchronized List<EditEvent> events(String scenarioId) {
@@ -223,7 +273,7 @@ public final class ScenarioService {
   }
 
   private static void limit(int size, int max, String type) {
-    if (size >= max) throw new StoreProblem(StoreProblem.Kind.LIMIT, type + "数量已达到本地 M1 上限 " + max);
+    if (size >= max) throw new StoreProblem(StoreProblem.Kind.LIMIT, type + "数量已达到本地上限 " + max);
   }
 
   private static <T> T require(Map<String, T> map, String id, String kind) {

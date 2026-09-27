@@ -127,6 +127,72 @@ class ScenarioServiceTest {
   }
 
   @Test
+  void wegoLocksVersionsAndRepeatedConcurrentResolveAdvancesOnlyOnce() throws Exception {
+    var service = new ScenarioService();
+    var draft = service.importScenario(playable());
+    var revision = service.freeze(draft.id(), 1);
+    var game = service.createGame(revision.id(), 42);
+    var other = service.createGame(revision.id(), 42);
+    assertThrows(StoreProblem.class, () -> service.resolve(game.id(), 1));
+    assertThrows(StoreProblem.class, () -> service.commit(game.id(), 1, Side.BLUE, 0));
+    assertThrows(
+        ScenarioViolation.class,
+        () ->
+            service.submit(
+                game.id(),
+                1,
+                Side.BLUE,
+                0,
+                List.of(new MovementOrder("hq", "blue", List.of(new HexCoord(1, 0))))));
+    for (var side : Side.values()) {
+      var view = service.submit(game.id(), 1, side, 0, List.of());
+      assertEquals(view, service.submit(game.id(), 1, side, 0, List.of()));
+      assertThrows(StoreProblem.class, () -> service.commit(game.id(), 1, side, 2));
+      service.commit(game.id(), 1, side, 1);
+      service.commit(game.id(), 1, side, 1);
+    }
+    assertEquals("LOCKED", service.turn(game.id()).status());
+    try (var pool = Executors.newFixedThreadPool(2)) {
+      var a = pool.submit(() -> service.resolve(game.id(), 1));
+      var b = pool.submit(() -> service.resolve(game.id(), 1));
+      assertEquals(a.get(), b.get());
+      assertEquals(a.get(), service.resolve(game.id(), 1));
+    }
+    assertEquals(1, service.game(game.id()).day());
+    assertEquals(2, service.turn(game.id()).day());
+    assertEquals(0, service.game(other.id()).day());
+    assertFalse(service.turn(game.id()).blue().submitted());
+    assertThrows(StoreProblem.class, () -> service.commit(game.id(), 1, Side.BLUE, 1));
+    assertThrows(StoreProblem.class, () -> service.submit(game.id(), 3, Side.BLUE, 0, List.of()));
+    assertThrows(StoreProblem.class, () -> service.resolve(game.id(), 2));
+    for (var side : Side.values()) {
+      service.submit(game.id(), 2, side, 0, List.of());
+      service.commit(game.id(), 2, side, 1);
+    }
+    service.resolve(game.id(), 2);
+    assertEquals(1, service.resolve(game.id(), 1).result().day());
+    assertEquals(2, service.game(game.id()).day());
+    assertEquals(game.initialState(), service.game(game.id()).initialState());
+  }
+
+  @Test
+  void experimentLimitPreservesEarlierResultsAndStopsFurtherCommands() {
+    var session = new BattleSession(playable(), 42, 4);
+    for (int day = 1; day <= 60; day++) {
+      for (var side : Side.values()) {
+        session.submit(day, side, 0, List.of());
+        session.commit(day, side, 1);
+      }
+      assertEquals(day, session.resolve(day).result().day());
+    }
+    assertEquals("LIMIT_REACHED", session.view().status());
+    assertEquals(session.day(1), session.resolve(1));
+    assertEquals(
+        StoreProblem.Kind.LIMIT,
+        assertThrows(StoreProblem.class, () -> session.submit(61, Side.BLUE, 0, List.of())).kind());
+  }
+
+  @Test
   void resourceLimitsAreEnforcedAndEmptyDraftCannotFreeze() {
     var service = new ScenarioService();
     var draft = service.create("empty", 2, 2);
