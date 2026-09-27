@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>战术编排 · 场景实验场</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header>
+      <div>
+        <span class="eyebrow">TACTICAL ORCHESTRATION / M1</span>
+        <h1>战术编排 <span>场景实验场</span></h1>
+        <p>胜兵先胜，而后求战</p>
+      </div>
+      <span id="connection" class="badge">未连接</span>
+    </header>
+    <section class="auth panel">
+      <form id="auth-form">
+        <label
+          >本地会话令牌
+          <input
+            id="token"
+            type="password"
+            required
+            autocomplete="off"
+            placeholder="粘贴 .runtime/session.token 内容" /></label
+        ><button>连接服务</button
+        ><button type="button" id="disconnect" class="secondary">断开</button>
+      </form>
+      <small
+        >令牌只保存在本页内存，刷新后需重新输入。场景在服务运行期间保留，长期保存请导出
+        JSON。</small
+      >
+    </section>
+    <div id="status" role="status" aria-live="polite">
+      连接后可创建空白地图，或载入“河谷突破”预置场景。
+    </div>
+    <main>
+      <section class="workspace panel">
+        <div class="section-heading">
+          <h2>01 / 场景</h2>
+          <span id="draft-meta">未选择草稿</span>
+        </div>
+        <div class="toolbar">
+          <label
+            >已有草稿
+            <select id="draft-list">
+              <option value="">请选择</option>
+            </select></label
+          ><button id="reload" class="secondary" data-auth>重新载入</button
+          ><button id="preset" data-auth>载入河谷突破</button
+          ><label class="file-button"
+            >导入 JSON<input
+              id="import-file"
+              type="file"
+              accept=".json,application/json"
+              data-auth /></label
+          ><button id="export" class="secondary" data-draft>导出草稿</button>
+        </div>
+        <form id="create-form" class="toolbar">
+          <label
+            >场景名
+            <input
+              id="create-name"
+              value="新的战术实验"
+              maxlength="80"
+              required /></label
+          ><label
+            >宽
+            <input
+              id="width"
+              type="number"
+              min="2"
+              max="16"
+              value="7"
+              required /></label
+          ><label
+            >高
+            <input
+              id="height"
+              type="number"
+              min="2"
+              max="16"
+              value="5"
+              required /></label
+          ><button data-auth>创建空白地图</button>
+        </form>
+        <div class="map-heading">
+          <h2>02 / 初始战场</h2>
+          <span>选择六角格编辑 · 轴向坐标 q, r</span>
+        </div>
+        <div class="map-scroll">
+          <svg
+            id="map"
+            role="group"
+            aria-label="六角战场地图"
+            viewBox="0 0 640 360"
+          >
+            <text x="24" y="45">连接并载入场景后显示地图</text>
+          </svg>
+        </div>
+        <div class="legend">
+          <span>🟩 平原</span><span>🌲 森林</span><span>▲ 高地／山地</span
+          ><span>▣ 城市</span><span>蓝线 河流</span><span>浅线 道路</span
+          ><span>═ 桥梁</span><span>＋ 补给</span>
+        </div>
+        <p class="hint">
+          这是初始部署编辑器。师部只能部署在城市；冻结后的实验状态不可在此修改。M1
+          尚不执行移动或战斗。
+        </p>
+      </section>
+      <aside class="panel inspector">
+        <div class="section-heading">
+          <h2>03 / 格子属性</h2>
+          <span id="selection">未选择</span>
+        </div>
+        <form id="cell-form">
+          <label
+            >地形
+            <select id="terrain">
+              <option value="PLAIN">平原</option>
+              <option value="FOREST">森林</option>
+              <option value="HILL">高地</option>
+              <option value="MOUNTAIN">山地</option>
+              <option value="CITY">城市</option>
+            </select></label
+          ><label
+            >基础工事等级
+            <input
+              id="fortification"
+              type="number"
+              min="0"
+              max="3"
+              value="0"
+              required /></label
+          ><button data-cell>保存地形</button>
+        </form>
+        <details open>
+          <summary>河流、桥梁与道路</summary>
+          <form id="edge-form">
+            <label
+              >相邻格
+              <select id="neighbor"></select
+            ></label>
+            <div class="checks">
+              <label><input id="river" type="checkbox" /> 河流</label
+              ><label><input id="road" type="checkbox" /> 道路</label>
+            </div>
+            <label
+              >桥梁
+              <select id="bridge">
+                <option value="NONE">无桥</option>
+                <option value="INTACT">完好</option>
+                <option value="DESTROYED">已毁</option>
+              </select></label
+            ><button data-cell>保存格边</button>
+          </form>
+        </details>
+        <details>
+          <summary>补给设施</summary>
+          <form id="supply-form">
+            <label
+              >补给点 ID
+              <input
+                id="supply-id"
+                required
+                pattern="[A-Za-z0-9_-]{1,64}"
+                maxlength="64" /></label
+            ><label
+              >阵营
+              <select id="supply-side">
+                <option value="BLUE">蓝方</option>
+                <option value="RED">红方</option>
+              </select></label
+            ><label
+              >库存
+              <input
+                id="stock"
+                type="number"
+                min="0"
+                max="1000000"
+                value="500"
+                required
+            /></label>
+            <div class="toolbar">
+              <button data-cell>保存补给点</button
+              ><button
+                id="remove-supply"
+                type="button"
+                class="secondary"
+                data-cell
+              >
+                移除
+              </button>
+            </div>
+          </form>
+        </details>
+        <details open>
+          <summary>团与连队编制</summary>
+          <form id="regiment-form">
+            <label
+              >团 ID
+              <input
+                id="regiment-id"
+                required
+                pattern="[A-Za-z0-9_-]{1,64}"
+                maxlength="64" /></label
+            ><label
+              >团名称 <input id="regiment-name" required maxlength="80"
+            /></label>
+            <div class="two-cols">
+              <label
+                >阵营
+                <select id="side">
+                  <option value="BLUE">蓝方</option>
+                  <option value="RED">红方</option>
+                </select></label
+              ><label
+                >角色
+                <select id="role">
+                  <option value="REGIMENT">普通团</option>
+                  <option value="DIVISION_HQ">城市师部</option>
+                  <option value="BRIGADE_HQ">旅部</option>
+                </select></label
+              >
+            </div>
+            <label
+              >所属旅部
+              <select id="brigade">
+                <option value="">无</option>
+              </select></label
+            >
+            <p class="hint">
+              师部至少 1 个存活通信连，旅部至少 2 个；普通团可混编或仅有 1
+              连。HP 为 0 的连保留记录。
+            </p>
+            <div id="companies"></div>
+            <button id="add-company" type="button" class="secondary" data-cell>
+              ＋ 添加连队
+            </button>
+            <div class="toolbar">
+              <button data-cell>保存团编制</button
+              ><button
+                id="remove-regiment"
+                type="button"
+                class="secondary"
+                data-cell
+              >
+                移除团
+              </button>
+            </div>
+          </form>
+        </details>
+      </aside>
+      <section class="panel experiments">
+        <div class="section-heading">
+          <h2>04 / 冻结与实验</h2>
+          <span>双方城市师部齐备后可冻结</span>
+        </div>
+        <div class="toolbar">
+          <button id="freeze" data-draft>冻结当前草稿</button
+          ><label
+            >冻结版本
+            <select id="revision-list">
+              <option value="">尚未冻结</option>
+            </select></label
+          ><button id="export-revision" class="secondary" data-revision>
+            导出冻结输入</button
+          ><label
+            >种子 <input id="seed" type="number" value="42" step="1" /></label
+          ><button id="create-game" data-revision>启动独立实验</button>
+        </div>
+        <p id="revision-info" class="hash">
+          冻结后显示内容哈希。可以从同一版本多次启动实验。
+        </p>
+        <div id="games" class="games"></div>
+        <details>
+          <summary>查看实验的冻结初始状态</summary>
+          <pre id="game-detail">选择一个实验查看其初始输入。</pre>
+        </details>
+      </section>
+      <section class="panel journal">
+        <div class="section-heading">
+          <h2>05 / 操作事件</h2>
+          <span>服务端记录</span>
+        </div>
+        <ol id="events">
+          <li>暂无事件</li>
+        </ol>
+      </section>
+    </main>
+    <footer>
+      原生 Web · 服务端权威校验 · 冻结输入可复用
+      <a href="/api/v1/openapi" id="openapi">读取 OpenAPI（需连接）</a>
+    </footer>
+  </body>
+</html>

@@ -51,6 +51,25 @@ with tempfile.TemporaryDirectory(prefix='tactical-smoke-') as work:
                        '{"schemaVersion":1,"kind":"COMMAND","id":"smoke-1"}')[0] == 200
         assert request('/api/v1/contracts/validate', token, '{')[0] == 400
         assert request('/api/v1/openapi', token)[1]['openapi'] == '3.1.0'
+        # M1 HTTP-only loop: preset -> editable draft -> immutable revision -> two games.
+        status, preset = request('/api/v1/presets/river-valley', token)
+        assert status == 200
+        status, draft = request('/api/v1/scenarios/import', token, json.dumps(preset))
+        assert status == 201
+        status, revision = request(f"/api/v1/scenarios/{draft['id']}/revisions", token,
+                                   json.dumps({'expectedVersion': draft['version']}))
+        assert status == 200
+        created = []
+        for _ in range(2):
+            status, game = request('/api/v1/games', token, json.dumps({'revisionId': revision['id'], 'seed': 42}))
+            assert status == 201
+            created.append(game)
+        assert created[0]['id'] != created[1]['id']
+        assert created[0]['initialState'] == created[1]['initialState'] == revision['scenario']
+        status, events = request(f"/api/v1/scenarios/{draft['id']}/events", token)
+        assert status == 200
+        (root / 'tactical-server/target/m1-http-events.jsonl').write_text(
+            ''.join(json.dumps(event, ensure_ascii=False) + '\n' for event in events))
         # Validate actual listening sockets, not merely the configured property.
         listeners = []
         for filename in ['/proc/net/tcp', '/proc/net/tcp6']:
@@ -70,7 +89,7 @@ with tempfile.TemporaryDirectory(prefix='tactical-smoke-') as work:
                 assert connection.connect_ex((address, port)) != 0, 'Non-loopback connection accepted'
                 tested += 1
         assert token not in log_path.read_text(), 'Credential leaked into server logs'
-        print(f'PASS: executable JAR, curl 200/401/400, OpenAPI, loopback binding, {tested} external interface refusal(s), no token in logs')
+        print(f'PASS: executable JAR, curl 200/401/400, generated OpenAPI, M1 freeze/two independent games, loopback binding, {tested} external interface refusal(s), no token in logs')
     finally:
         server.terminate()
         try:

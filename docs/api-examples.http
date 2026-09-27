@@ -33,3 +33,55 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"schemaVersion":2,"kind":"COMMAND","id":"order-1"}
+
+### M1: create a blank draft; save returned id as scenarioId and version as draftVersion
+POST {{baseUrl}}/api/v1/scenarios
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"name":"空白地图","width":7,"height":5}
+
+### M1: import the complete versioned preset (save returned id/version)
+POST {{baseUrl}}/api/v1/scenarios/import
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+< ../scenarios/river-valley.json
+
+### Read editable draft
+GET {{baseUrl}}/api/v1/scenarios/{{scenarioId}}
+Authorization: Bearer {{token}}
+
+### Export plain scenario JSON (can be imported verbatim)
+GET {{baseUrl}}/api/v1/scenarios/{{scenarioId}}/export
+Authorization: Bearer {{token}}
+
+### Freeze; save returned id as revisionId
+POST {{baseUrl}}/api/v1/scenarios/{{scenarioId}}/revisions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"expectedVersion":{{draftVersion}}}
+
+### Run twice to create two independent READY instances
+POST {{baseUrl}}/api/v1/games
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"revisionId":"{{revisionId}}","seed":42}
+
+### Inspect frozen input and hash
+GET {{baseUrl}}/api/v1/revisions/{{revisionId}}
+Authorization: Bearer {{token}}
+
+### Inspect instances from this revision
+GET {{baseUrl}}/api/v1/revisions/{{revisionId}}/games
+Authorization: Bearer {{token}}
+
+### Read structured editing events
+GET {{baseUrl}}/api/v1/scenarios/{{scenarioId}}/events
+Authorization: Bearer {{token}}
+
+### Frozen revision cannot be modified: 409
+PUT {{baseUrl}}/api/v1/revisions/{{revisionId}}
+Authorization: Bearer {{token}}

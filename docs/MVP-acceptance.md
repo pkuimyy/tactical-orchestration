@@ -50,6 +50,43 @@ python3 scripts/smoke-test.py
 - TECH 与 PLAN 已同步为原生 Web、全局 Maven、代码生成 OpenAPI；不提交生成文档。
 - M1 从六角地图/格边领域模型、场景草稿 API、冻结哈希和同源原生 Web 编辑器开始。
 
-## M1–M6
+## M1 — 最小 Web 地图编辑与场景冻结
+
+日期：2026-09-27。版本：`0.1.0-SNAPSHOT` / `m1-scenario-1`，对应包含本记录的提交。
+环境沿用 M0；浏览器验证使用 Chromium 153（Playwright），桌面 1440×1100、窄屏 390×844。
+
+| 门禁 | 结果与证据 |
+|---|---|
+| HTTP 场景闭环 | 预置/创建 → 编辑/校验 → 冻结 → 两个不同 ID 的实验；原生 HTTP 集成测试和 cURL 脚本通过 |
+| 浏览器场景闭环 | 从空白 7×5 地图部署双方城市师部、工兵、装甲、补给点，编辑格边河流/桥梁/道路和 HP，冻结后启动两个实验 |
+| 服务端校验 | 非法坐标、重复格/占格、错误格边、超大地图、非法 HP/连位、旅部通信连不足、师部非城市、空师部冻结等均被拒绝 |
+| 冻结与隔离 | 同输入哈希一致；列表逆序/格边反向不影响哈希；修改草稿不改变冻结版本和已有实验；写冻结版本返回 409 |
+| 并发编辑 | 同一草稿版本的两个并发更新恰有一个成功；旧版本保存/冻结返回 409 |
+| 导入导出 | HTTP 与浏览器均完成导出→新草稿导入→冻结，内容哈希相同 |
+| 刷新与错误显示 | 刷新后重新认证，从服务端加载相同草稿；非法城市师部地形编辑显示具体原因且服务器状态未改 |
+| Web 边界 | 仅原生 HTML/CSS/ES Modules/Fetch/SVG；精确静态白名单，所有场景 API 与 OpenAPI 仍认证；令牌仅内存持有 |
+| 自动化 | 18 项 JUnit 测试全部通过（core 4、application 5、server 9）；格式检查与引擎依赖检查通过 |
+| 可解释产物 | 版本化预置 `scenarios/river-valley.json`、HTTP 示例、场景契约、真实操作日志 `docs/m1-event-example.jsonl` |
+
+验收命令：
+
+```sh
+mvn clean verify
+mvn -o clean verify
+python3 scripts/smoke-test.py
+PLAYWRIGHT_MODULE=/path/to/playwright node scripts/browser-smoke.mjs
+```
+
+浏览器脚本覆盖空白场景到两实例、冻结隔离、非法编辑、刷新、导入导出全过程，
+无 JavaScript 页面异常。截图输出 `tactical-server/target/m1-editor.png` 和 `m1-mobile.png`，
+已检查桌面与窄屏布局；不提交生成截图、构建产物或 OpenAPI。
+
+结论：M1 门禁通过，可进入 M2。
+
+限制：M1 数据在内存中，重启服务清空；可通过 JSON 导出长期保存。当前实验为 READY／第 0 天，
+无战斗/移动/回合执行。师部在草稿中可重新部署，在实验实例中没有移动或直接写入位置的接口。
+Linux 的令牌文件权限限制沿用 M0。通信网络、合法初始情报与 DAG 在后续节点补齐。
+
+## M2–M6
 
 未开始，未验收。

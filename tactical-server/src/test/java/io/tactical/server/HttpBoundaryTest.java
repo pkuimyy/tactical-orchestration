@@ -64,7 +64,7 @@ class HttpBoundaryTest {
     assertEquals(401, request("/api/v1/system?token=" + token, "GET", "", null).statusCode());
     var response = request("/api/v1/system", "GET", "", "Bearer " + token);
     assertEquals(200, response.statusCode());
-    assertTrue(response.body().contains("M0"));
+    assertTrue(response.body().contains("M1"));
     assertEquals("no-store", response.headers().firstValue("Cache-Control").orElseThrow());
   }
 
@@ -154,6 +154,130 @@ class HttpBoundaryTest {
     assertTrue(operation.path("responses").has("401"));
     assertTrue(operation.path("responses").has("400"));
     assertNull(getClass().getResource("/openapi.json"));
+  }
+
+  @Test
+  void scenarioLifecycleOverHttpAndStaticClient() throws Exception {
+    for (String path : new String[] {"/", "/index.html", "/app.js", "/style.css"}) {
+      var response = request(path, "GET", "", null);
+      assertEquals(200, response.statusCode(), path);
+      assertTrue(
+          response
+              .headers()
+              .firstValue("Content-Security-Policy")
+              .orElseThrow()
+              .contains("default-src 'self'"));
+    }
+    assertEquals(401, request("/api/v1/scenarios", "GET", "", null).statusCode());
+    var mapper = new tools.jackson.databind.ObjectMapper();
+    var preset =
+        mapper.readTree(
+            request("/api/v1/presets/river-valley", "GET", "", "Bearer " + token).body());
+    var imported =
+        request("/api/v1/scenarios/import", "POST", preset.toString(), "Bearer " + token);
+    assertEquals(201, imported.statusCode(), imported.body());
+    String id = mapper.readTree(imported.body()).path("id").asText();
+    var frozen =
+        request(
+            "/api/v1/scenarios/" + id + "/revisions",
+            "POST",
+            "{\"expectedVersion\":1}",
+            "Bearer " + token);
+    assertEquals(200, frozen.statusCode(), frozen.body());
+    var revision = mapper.readTree(frozen.body());
+    String revisionId = revision.path("id").asText();
+    String creation = "{\"revisionId\":\"" + revisionId + "\",\"seed\":42}";
+    var a = request("/api/v1/games", "POST", creation, "Bearer " + token);
+    var b = request("/api/v1/games", "POST", creation, "Bearer " + token);
+    assertEquals(201, a.statusCode());
+    assertEquals(201, b.statusCode());
+    var first = mapper.readTree(a.body());
+    var second = mapper.readTree(b.body());
+    assertNotEquals(first.path("id"), second.path("id"));
+    assertEquals(first.path("initialState"), second.path("initialState"));
+    String exported =
+        request("/api/v1/scenarios/" + id + "/export", "GET", "", "Bearer " + token).body();
+    var clone =
+        mapper.readTree(
+            request("/api/v1/scenarios/import", "POST", exported, "Bearer " + token).body());
+    var clonedRevision =
+        mapper.readTree(
+            request(
+                    "/api/v1/scenarios/" + clone.path("id").asText() + "/revisions",
+                    "POST",
+                    "{\"expectedVersion\":1}",
+                    "Bearer " + token)
+                .body());
+    assertEquals(revision.path("contentHash"), clonedRevision.path("contentHash"));
+    ((tools.jackson.databind.node.ObjectNode) preset).put("name", "Edited draft");
+    var update = mapper.createObjectNode().put("expectedVersion", 1).set("scenario", preset);
+    assertEquals(
+        200,
+        request("/api/v1/scenarios/" + id, "PUT", update.toString(), "Bearer " + token)
+            .statusCode());
+    assertEquals(
+        409,
+        request("/api/v1/scenarios/" + id, "PUT", update.toString(), "Bearer " + token)
+            .statusCode());
+    assertEquals(
+        409,
+        request("/api/v1/revisions/" + revisionId, "PUT", exported, "Bearer " + token)
+            .statusCode());
+    assertEquals(
+        first,
+        mapper.readTree(
+            request("/api/v1/games/" + first.path("id").asText(), "GET", "", "Bearer " + token)
+                .body()));
+    assertEquals(
+        405,
+        request("/api/v1/games/" + first.path("id").asText(), "PUT", exported, "Bearer " + token)
+            .statusCode());
+    var spec = mapper.readTree(request("/api/v1/openapi", "GET", "", "Bearer " + token).body());
+    assertTrue(spec.path("paths").has("/api/v1/scenarios/{id}/revisions"));
+    assertTrue(spec.path("components").path("schemas").has("Scenario"));
+  }
+
+  @Test
+  void invalidScenarioImportsReturnActionableErrors() throws Exception {
+    var mapper = new tools.jackson.databind.ObjectMapper();
+    String preset = request("/api/v1/presets/river-valley", "GET", "", "Bearer " + token).body();
+    for (int kind = 0; kind < 5; kind++) {
+      var input = (tools.jackson.databind.node.ObjectNode) mapper.readTree(preset);
+      if (kind == 0) input.put("width", 17);
+      if (kind == 1)
+        ((tools.jackson.databind.node.ObjectNode) input.path("regiments").get(1))
+            .set("position", input.path("regiments").get(0).path("position"));
+      if (kind == 2)
+        ((tools.jackson.databind.node.ObjectNode) input.path("cells").get(0).path("position"))
+            .put("q", -1);
+      if (kind == 3)
+        ((tools.jackson.databind.node.ObjectNode)
+                input.path("regiments").get(0).path("companies").get(0))
+            .put("hp", 101);
+      if (kind == 4) input.putNull("cells");
+      var response =
+          request("/api/v1/scenarios/import", "POST", input.toString(), "Bearer " + token);
+      assertEquals(400, response.statusCode(), response.body());
+      assertTrue(response.body().contains("INVALID_SCENARIO"));
+    }
+    var empty =
+        request(
+            "/api/v1/scenarios",
+            "POST",
+            "{\"name\":\"blank\",\"width\":3,\"height\":3}",
+            "Bearer " + token);
+    assertEquals(201, empty.statusCode());
+    var id = mapper.readTree(empty.body()).path("id").asText();
+    var freeze =
+        request(
+            "/api/v1/scenarios/" + id + "/revisions",
+            "POST",
+            "{\"expectedVersion\":1}",
+            "Bearer " + token);
+    assertEquals(400, freeze.statusCode());
+    assertTrue(freeze.body().contains("师部"));
+    assertEquals(
+        404, request("/api/v1/scenarios/missing", "GET", "", "Bearer " + token).statusCode());
   }
 
   @Test

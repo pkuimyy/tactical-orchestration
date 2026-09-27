@@ -1,0 +1,4 @@
+{"sequence": 1, "kind": "DRAFT_CREATED", "scenarioId": "bf2aea06-92aa-4086-b799-2d1416b587d6", "entityId": "bf2aea06-92aa-4086-b799-2d1416b587d6", "contentHash": "c1bf87b39da3659be33f6612630c1d326a35d60e02e6d42c338a599e97dd6a07"}
+{"sequence": 2, "kind": "SCENARIO_FROZEN", "scenarioId": "bf2aea06-92aa-4086-b799-2d1416b587d6", "entityId": "37be5cc5-6a83-4977-89b6-c7a79eeec503", "contentHash": "c1bf87b39da3659be33f6612630c1d326a35d60e02e6d42c338a599e97dd6a07"}
+{"sequence": 3, "kind": "GAME_CREATED", "scenarioId": "bf2aea06-92aa-4086-b799-2d1416b587d6", "entityId": "2dfe0248-0a78-47b4-b27b-5667b2317eae", "contentHash": "c1bf87b39da3659be33f6612630c1d326a35d60e02e6d42c338a599e97dd6a07"}
+{"sequence": 4, "kind": "GAME_CREATED", "scenarioId": "bf2aea06-92aa-4086-b799-2d1416b587d6", "entityId": "59f89a1a-bd4d-4021-aabb-030f79313626", "contentHash": "c1bf87b39da3659be33f6612630c1d326a35d60e02e6d42c338a599e97dd6a07"}

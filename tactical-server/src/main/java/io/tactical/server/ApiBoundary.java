@@ -34,7 +34,13 @@ final class ApiBoundary extends OncePerRequestFilter {
       throws ServletException, IOException {
     response.setHeader("Cache-Control", "no-store");
     response.setHeader("X-Content-Type-Options", "nosniff");
-    boolean health = request.getMethod().equals("GET") && request.getRequestURI().equals("/health");
+    response.setHeader(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+    boolean health =
+        request.getMethod().equals("GET")
+            && java.util.Set.of("/health", "/", "/index.html", "/app.js", "/style.css")
+                .contains(request.getRequestURI());
     var headers = Collections.list(request.getHeaders("Authorization"));
     if (!health && (headers.size() != 1 || !token.matches(headers.getFirst()))) {
       response.setHeader("WWW-Authenticate", "Bearer");

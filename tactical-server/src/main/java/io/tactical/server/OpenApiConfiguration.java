@@ -42,6 +42,13 @@ class OpenApiConfiguration {
           .addApiResponse("413", error("Request body exceeds configured limit"));
       operation.getResponses().addApiResponse("415", error("Unsupported content type or encoding"));
       operation.getResponses().addApiResponse("500", error("Internal server error"));
+      operation.getResponses().addApiResponse("404", error("Resource not found"));
+      operation
+          .getResponses()
+          .addApiResponse("409", error("Stale draft version or immutable revision"));
+      operation
+          .getResponses()
+          .addApiResponse("429", error("Local scenario resource limit reached"));
       if (operation.getRequestBody() != null) {
         operation.getResponses().addApiResponse("400", error("Invalid version or request payload"));
       }

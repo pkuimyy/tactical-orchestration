@@ -1,7 +1,7 @@
 # 战术编排 · Tactical Orchestration
 
-M0：纯 Java 模块边界、Spring Boot HTTP 入口、本地认证与契约校验。
-场景编辑、Web 和战斗结算按 M1–M6 后续推进。
+M1：原生 Web 六角地图编辑、双方团连与补给部署、场景冻结及独立实验实例。
+M0 的 HTTP 认证、输入边界、自动 OpenAPI 和 Maven 构建继续生效。战斗结算从 M2 开始。
 
 ## 环境与构建
 
@@ -50,6 +50,23 @@ curl -i http://127.0.0.1:8080/api/v1/system
 依次预期 200、401、200、200。Bruno/IDE 示例见 [api-examples.http](docs/api-examples.http)。
 契约检查不创建场景、不执行命令；版本与错误约定见 [contracts.md](docs/contracts.md)。
 
+## 浏览器编辑器（M1）
+
+启动后打开 `http://127.0.0.1:8080/`，将 `.runtime/session.token` 的内容粘贴到页面并连接。
+
+1. 载入“河谷突破”预置，或创建 2–16 格宽高的空白地图。
+2. 选择六角格，编辑地形、基础工事、相邻格边的河流／桥梁／道路、补给点。
+3. 在团编制表单设置阵营、角色和连队，编辑装备与 HP，点击对应保存按钮。
+4. 双方城市师部齐备后冻结；从同一冻结版本点击两次“启动独立实验”，得到不同实例 ID。
+5. 可继续修改草稿；已有冻结版本和实验保持原输入。导出 JSON 可在其他服务会话导入。
+
+每个表单保存都经过服务端校验；错误显示在顶部。刷新后重新输入令牌，会从服务端
+载入上次选择的草稿。令牌不写入浏览器持久存储。草稿采用版本检查，冲突时请重新载入。
+
+**M1 使用内存仓库**：服务重启会清空草稿、冻结版本、实验及事件；重要场景请导出。
+此阶段实验状态为 READY／第 0 天，不包含战斗或移动。编辑草稿的初始师部位置是部署操作，
+运行中的师部没有移动／直接写位置接口。详细 API 与限制见 [M1 场景契约](docs/m1-scenarios.md)。
+
 ## 模块
 
 - `tactical-core`：纯 Java 领域与契约不变量。
@@ -61,7 +78,7 @@ MVP 客户端以实施计划为准，M1 开始使用 Spring Boot 同源原生 We
 不引入独立 CLI、JavaFX、前端框架或客户端规则引擎。
 验收记录见 [MVP-acceptance.md](docs/MVP-acceptance.md)。
 
-独立产物验收（Linux，另需 Python 3 和 cURL）：
+独立产物与 M1 HTTP 流程验收（Linux，另需 Python 3 和 cURL）：
 
 ```sh
 python3 scripts/smoke-test.py
@@ -86,3 +103,12 @@ mkdir -p tactical-server/target
 
 生成的 OpenAPI JSON/YAML 和 `target/` 均被 Git 忽略，不纳入版本管理。
 设计基线位于 [.codex/design](.codex/design/)，TECH 与 PLAN 已统一为原生 Web、全局 Maven 和代码生成 OpenAPI。
+
+可选浏览器验收（仅开发测试需要 Node.js + Playwright/Chromium，产品没有 Node 构建依赖）：
+
+```sh
+PLAYWRIGHT_MODULE=/path/to/playwright node scripts/browser-smoke.mjs
+```
+
+脚本从空白地图完成编辑、冻结、双实验、刷新、错误展示和导入导出，截图输出到
+`tactical-server/target/m1-editor.png` 与 `m1-mobile.png`。

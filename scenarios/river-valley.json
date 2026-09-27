@@ -1,0 +1,518 @@
+{
+  "schemaVersion": 1,
+  "name": "河谷突破 · 初始部署",
+  "width": 7,
+  "height": 5,
+  "cells": [
+    {
+      "position": {
+        "q": 0,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 2
+      },
+      "terrain": "CITY",
+      "fortification": 1
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 4
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 4
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 4
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 0
+      },
+      "terrain": "FOREST",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 4
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 0
+      },
+      "terrain": "FOREST",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 4
+      },
+      "terrain": "FOREST",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 1
+      },
+      "terrain": "HILL",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 4
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 2
+      },
+      "terrain": "CITY",
+      "fortification": 1
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 4
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "q": 2,
+        "r": 0
+      },
+      "b": {
+        "q": 3,
+        "r": 0
+      },
+      "river": true,
+      "bridge": "NONE",
+      "road": false
+    },
+    {
+      "a": {
+        "q": 2,
+        "r": 1
+      },
+      "b": {
+        "q": 3,
+        "r": 1
+      },
+      "river": true,
+      "bridge": "NONE",
+      "road": false
+    },
+    {
+      "a": {
+        "q": 2,
+        "r": 2
+      },
+      "b": {
+        "q": 3,
+        "r": 2
+      },
+      "river": true,
+      "bridge": "NONE",
+      "road": true
+    },
+    {
+      "a": {
+        "q": 2,
+        "r": 3
+      },
+      "b": {
+        "q": 3,
+        "r": 3
+      },
+      "river": true,
+      "bridge": "NONE",
+      "road": false
+    },
+    {
+      "a": {
+        "q": 2,
+        "r": 4
+      },
+      "b": {
+        "q": 3,
+        "r": 4
+      },
+      "river": true,
+      "bridge": "NONE",
+      "road": false
+    }
+  ],
+  "regiments": [
+    {
+      "id": "blue-hq",
+      "name": "蓝方师部",
+      "side": "BLUE",
+      "role": "DIVISION_HQ",
+      "position": {
+        "q": 0,
+        "r": 2
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "b-hq-signal",
+          "type": "SIGNAL",
+          "equipment": "FOOT",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "red-hq",
+      "name": "红方师部",
+      "side": "RED",
+      "role": "DIVISION_HQ",
+      "position": {
+        "q": 6,
+        "r": 2
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "r-hq-signal",
+          "type": "SIGNAL",
+          "equipment": "FOOT",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "blue-brigade",
+      "name": "蓝方旅部",
+      "side": "BLUE",
+      "role": "BRIGADE_HQ",
+      "position": {
+        "q": 0,
+        "r": 0
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "b-signal-1",
+          "type": "SIGNAL",
+          "equipment": "FOOT",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "b-signal-2",
+          "type": "SIGNAL",
+          "equipment": "FOOT",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "engineers",
+      "name": "工兵团",
+      "side": "BLUE",
+      "role": "REGIMENT",
+      "position": {
+        "q": 1,
+        "r": 1
+      },
+      "brigadeId": "blue-brigade",
+      "companies": [
+        {
+          "id": "engineer-1",
+          "type": "ENGINEER",
+          "equipment": "FOOT",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "armor",
+      "name": "装甲团",
+      "side": "BLUE",
+      "role": "REGIMENT",
+      "position": {
+        "q": 2,
+        "r": 2
+      },
+      "brigadeId": "blue-brigade",
+      "companies": [
+        {
+          "id": "armor-1",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "infantry-1",
+          "type": "INFANTRY",
+          "equipment": "MECHANIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "defenders",
+      "name": "红方守军",
+      "side": "RED",
+      "role": "REGIMENT",
+      "position": {
+        "q": 5,
+        "r": 2
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "red-infantry",
+          "type": "INFANTRY",
+          "equipment": "FOOT",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "red-at",
+          "type": "ANTI_TANK",
+          "equipment": "TOWED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    }
+  ],
+  "supplies": [
+    {
+      "id": "blue-supply",
+      "position": {
+        "q": 1,
+        "r": 3
+      },
+      "side": "BLUE",
+      "stock": 500
+    },
+    {
+      "id": "red-supply",
+      "position": {
+        "q": 5,
+        "r": 3
+      },
+      "side": "RED",
+      "stock": 500
+    }
+  ]
+}
