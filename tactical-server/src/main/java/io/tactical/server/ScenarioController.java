@@ -48,6 +48,28 @@ final class ScenarioController {
     return service.update(id, request.expectedVersion(), request.scenario());
   }
 
+  @PatchMapping("/scenarios/{id}/name")
+  Draft rename(@PathVariable String id, @Valid @RequestBody Rename request) {
+    return service.rename(id, request.expectedVersion(), request.name());
+  }
+
+  @PostMapping("/scenarios/{id}/copy")
+  @ResponseStatus(HttpStatus.CREATED)
+  Draft copy(@PathVariable String id, @Valid @RequestBody Version request) {
+    return service.copy(id, request.expectedVersion());
+  }
+
+  @PostMapping("/scenarios/{id}/archive")
+  Draft archive(@PathVariable String id, @Valid @RequestBody Archive request) {
+    return service.archive(id, request.expectedVersion(), request.archived());
+  }
+
+  @DeleteMapping("/scenarios/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  void delete(@PathVariable String id, @RequestParam @Min(1) long expectedVersion) {
+    service.delete(id, expectedVersion);
+  }
+
   @GetMapping("/scenarios/{id}/export")
   Scenario export(@PathVariable String id) {
     return service.get(id).scenario();
@@ -111,6 +133,10 @@ final class ScenarioController {
             new ClassPathResource("scenarios/river-valley.json").getContentAsByteArray(),
             Scenario.class);
   }
+
+  record Rename(@Min(1) long expectedVersion, @NotBlank @Size(max = 80) String name) {}
+
+  record Archive(@Min(1) long expectedVersion, boolean archived) {}
 
   record CreateScenario(
       @NotBlank @Size(max = 80) String name,

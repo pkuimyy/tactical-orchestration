@@ -105,6 +105,28 @@ class ScenarioServiceTest {
   }
 
   @Test
+  void managementPreservesFrozenProvenanceAndUsesOptimisticVersions() {
+    var service = new ScenarioService();
+    var draft = service.importScenario(playable());
+    var revision = service.freeze(draft.id(), 1);
+    var game = service.createGame(revision.id(), 9);
+    var renamed = service.rename(draft.id(), 1, "new name");
+    assertEquals("lab", revision.scenario().name());
+    assertThrows(StoreProblem.class, () -> service.copy(draft.id(), 1));
+    var copy = service.copy(draft.id(), renamed.version());
+    assertTrue(service.revisions(copy.id()).isEmpty());
+    service.delete(copy.id(), 1);
+    assertThrows(StoreProblem.class, () -> service.get(copy.id()));
+    assertThrows(StoreProblem.class, () -> service.delete(draft.id(), renamed.version()));
+    var archived = service.archive(draft.id(), renamed.version(), true);
+    assertTrue(service.list().getFirst().archived());
+    assertEquals(1, service.list().getFirst().games());
+    assertEquals(game, service.game(game.id()));
+    service.archive(draft.id(), archived.version(), false);
+    assertFalse(service.list().getFirst().archived());
+  }
+
+  @Test
   void resourceLimitsAreEnforcedAndEmptyDraftCannotFreeze() {
     var service = new ScenarioService();
     var draft = service.create("empty", 2, 2);

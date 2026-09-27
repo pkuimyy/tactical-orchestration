@@ -13,9 +13,13 @@
         <span class="brand-mark">策</span>
         <div>
           <h1>战术编排</h1>
-          <span class="eyebrow">TACTICAL ORCHESTRATION · M1.1</span>
+          <span class="eyebrow">TACTICAL ORCHESTRATION · M1.2</span>
         </div>
       </div>
+      <nav class="header-tabs" aria-label="主导航">
+        <button id="workspace-tab" aria-pressed="true">部署战场</button
+        ><button id="library-tab" aria-pressed="false">战场管理</button>
+      </nav>
       <div class="operation-title">
         <span>军事学说实验场 / 初始部署</span
         ><strong id="draft-meta">尚未部署战场</strong>
@@ -282,6 +286,45 @@
         </ol>
       </section>
     </main>
+    <section id="library-view" class="library-view panel" hidden>
+      <div class="section-heading">
+        <div>
+          <h2>战场档案库</h2>
+          <p class="hint">管理草稿与实验来源 · 服务重启前请导出重要部署</p>
+        </div>
+        <div class="library-filter">
+          <input
+            id="library-search"
+            aria-label="搜索战场"
+            placeholder="搜索战场名称"
+          /><label><input id="show-archived" type="checkbox" />显示归档</label
+          ><button id="library-refresh" class="secondary" data-auth>
+            刷新
+          </button>
+        </div>
+      </div>
+      <div id="library-cards" class="library-cards"></div>
+      <div class="paging">
+        <button id="library-prev" class="secondary">‹</button
+        ><span id="library-page">0 / 0</span
+        ><button id="library-next" class="secondary">›</button>
+      </div>
+    </section>
+    <dialog id="rename-dialog">
+      <form id="rename-form">
+        <h2>重命名战场</h2>
+        <input
+          id="rename-name"
+          required
+          maxlength="80"
+          aria-label="新的战场名称"
+        /><button>保存名称</button
+        ><button type="button" class="secondary" data-close="rename-dialog">
+          取消
+        </button>
+        <p class="dialog-status"></p>
+      </form>
+    </dialog>
     <footer>
       <span id="status" role="status" aria-live="polite"
         >连接指挥终端，开始部署。</span

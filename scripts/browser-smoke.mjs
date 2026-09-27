@@ -270,6 +270,57 @@ try {
     path: join(root, "tactical-server/target/m1.1-game.png"),
     fullPage: true,
   });
+  // M1.2 management operates through a separate header tab.
+  await clickAndStatus("#library-tab", "战场档案已载入");
+  assert.ok(await page.locator(".game-board").isHidden());
+  await page.locator("#library-search").fill("浏览器验收场景");
+  let card = page.locator(`[data-scenario-id="${importedId}"]`);
+  await card.getByRole("button", { name: "重命名", exact: true }).click();
+  await page.locator("#rename-name").fill("M1.2 管理验收");
+  await clickAndStatus("#rename-form button:not([type])", "战场名称已更新");
+  await page.locator("#library-search").fill("M1.2 管理验收");
+  await card.getByRole("button", { name: "复制", exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll(".library-card").length === 2,
+  );
+  const copyCard = page.locator(".library-card").filter({ hasText: "副本" });
+  const copyId = await copyCard.getAttribute("data-scenario-id");
+  assert.equal((await http(`/scenarios/${copyId}/revisions`)).length, 0);
+  await copyCard.getByRole("button", { name: "归档", exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll(".library-card").length === 1,
+  );
+  await page.locator("#show-archived").check();
+  await copyCard.getByRole("button", { name: "恢复", exact: true }).click();
+  await page.waitForFunction(() =>
+    document.getElementById("status").textContent.includes("已恢复"),
+  );
+  page.once("dialog", (d) => d.accept());
+  await copyCard.getByRole("button", { name: "删除", exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll(".library-card").length === 1,
+  );
+  for (const size of [
+    { width: 1980, height: 1080 },
+    { width: 1980, height: 960 },
+  ]) {
+    await page.setViewportSize(size);
+    assert.ok(
+      await page.evaluate(
+        () =>
+          document.body.scrollHeight <= innerHeight &&
+          document.querySelector(".library-view").scrollHeight <=
+            document.querySelector(".library-view").clientHeight + 2,
+      ),
+    );
+  }
+  await page.screenshot({
+    path: join(root, "tactical-server/target/m1.2-library.png"),
+  });
+  await card.getByRole("button", { name: "打开部署", exact: true }).click();
+  await page.waitForFunction(
+    () => !document.querySelector(".game-board").hidden,
+  );
   assert.deepEqual(errors, []);
   assert.ok(!log.includes(token));
   console.log(

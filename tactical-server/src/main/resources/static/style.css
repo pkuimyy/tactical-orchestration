@@ -816,3 +816,98 @@ dialog .section-heading button {
 .draft-picker {
   white-space: nowrap;
 }
+
+[hidden] {
+  display: none !important;
+}
+.header-tabs {
+  display: flex;
+  gap: 5px;
+}
+.header-tabs button {
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  border-bottom: 2px solid transparent;
+}
+.header-tabs button[aria-pressed="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+.library-view {
+  margin: 10px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.library-filter {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.library-filter > input {
+  width: 250px;
+}
+.library-filter label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.library-filter input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+.library-cards {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 12px 0;
+}
+.library-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-content: center;
+  padding: 22px;
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, #253a32, #15242c);
+}
+.library-card h3 {
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+.library-card .toolbar {
+  margin-top: auto;
+}
+.library-card .toolbar button {
+  font-size: 12px;
+}
+.library-card .badge {
+  font-size: 11px;
+  color: var(--accent);
+}
+.library-card p {
+  color: var(--muted);
+}
+#rename-form {
+  display: grid;
+  width: 100%;
+}
+@media (max-width: 1500px) {
+  .operation-title {
+    display: none;
+  }
+  .brand {
+    margin-right: auto;
+  }
+  .library-card {
+    padding: 12px;
+  }
+  .library-card .toolbar {
+    gap: 4px;
+  }
+}

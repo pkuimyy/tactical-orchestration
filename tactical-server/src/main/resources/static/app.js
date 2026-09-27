@@ -179,6 +179,7 @@ function controls() {
   $("add-company").disabled =
     busy || !selected || !token || $("companies").children.length >= 6;
   paging();
+  libraryControls();
 }
 async function run(action) {
   if (busy) return;
@@ -212,7 +213,7 @@ async function api(path, method = "GET", body) {
   } catch {
     throw new Error("无法连接服务或请求超时；请确认服务正在运行，再重新载入。");
   }
-  const result = await response.json();
+  const result = response.status === 204 ? null : await response.json();
   if (!response.ok) {
     if (response.status === 401) {
       token = "";
@@ -230,11 +231,15 @@ function optionList(select, entries, current) {
 }
 async function listDrafts() {
   const list = await api("/scenarios");
+  libraryRows = list;
+  renderLibrary();
   optionList(
     $("draft-list"),
     [
       ["", "请选择草稿"],
-      ...list.map((d) => [d.id, `${d.name} · v${d.version}`]),
+      ...list
+        .filter((d) => !d.archived)
+        .map((d) => [d.id, `${d.name} · v${d.version}`]),
     ],
     draft?.id || "",
   );
@@ -986,5 +991,165 @@ window.addEventListener("pointerup", () => {
   setTimeout(() => (dragged = false), 0);
 });
 window.addEventListener("resize", () => renderGamePage());
+
+let libraryRows = [],
+  libraryPage = 0,
+  renameTarget = null;
+function switchHeader(library) {
+  document.querySelector(".game-board").hidden = library;
+  $("library-view").hidden = !library;
+  $("workspace-tab").setAttribute("aria-pressed", String(!library));
+  $("library-tab").setAttribute("aria-pressed", String(library));
+}
+function filteredLibrary() {
+  const query = $("library-search").value.trim().toLowerCase();
+  return libraryRows.filter(
+    (d) =>
+      ($("show-archived").checked || !d.archived) &&
+      d.name.toLowerCase().includes(query),
+  );
+}
+function libraryControls() {
+  const pages = Math.ceil(filteredLibrary().length / 6);
+  $("library-prev").disabled = busy || libraryPage === 0;
+  $("library-next").disabled = busy || libraryPage + 1 >= pages;
+}
+function renderLibrary() {
+  const rows = filteredLibrary(),
+    pages = Math.ceil(rows.length / 6);
+  libraryPage = Math.min(libraryPage, Math.max(0, pages - 1));
+  $("library-page").textContent = pages
+    ? `${libraryPage + 1} / ${pages}`
+    : "0 / 0";
+  $("library-cards").replaceChildren(
+    ...rows.slice(libraryPage * 6, libraryPage * 6 + 6).map((d) => {
+      const card = document.createElement("article");
+      card.className = "library-card";
+      card.dataset.scenarioId = d.id;
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = d.archived ? "已归档" : "部署草稿";
+      const title = document.createElement("h3");
+      title.textContent = d.name;
+      const meta = document.createElement("p");
+      meta.textContent = `${d.width} × ${d.height} · v${d.version} · ${d.revisions} 冻结版本 · ${d.games} 实验`;
+      const actions = document.createElement("div");
+      actions.className = "toolbar";
+      const action = (label, fn) => {
+        const b = document.createElement("button");
+        b.className = "secondary";
+        b.textContent = label;
+        b.disabled = !token;
+        b.addEventListener("click", fn);
+        actions.append(b);
+      };
+      action("打开部署", () =>
+        run(async () => {
+          await loadDraft(d.id);
+          switchHeader(false);
+        }),
+      );
+      action("重命名", () => {
+        renameTarget = d;
+        $("rename-name").value = d.name;
+        $("rename-dialog").showModal();
+      });
+      action("复制", () =>
+        run(async () => {
+          await api(`/scenarios/${d.id}/copy`, "POST", {
+            expectedVersion: d.version,
+          });
+          await listDrafts();
+          message("已复制为独立草稿，不继承实验状态。");
+        }),
+      );
+      action(d.archived ? "恢复" : "归档", () =>
+        run(async () => {
+          const updated = await api(`/scenarios/${d.id}/archive`, "POST", {
+            expectedVersion: d.version,
+            archived: !d.archived,
+          });
+          if (draft?.id === d.id) draft = updated;
+          await listDrafts();
+          message(
+            d.archived ? "战场已恢复。" : "战场已归档，冻结版本和实验保留。",
+          );
+        }),
+      );
+      action("删除", () => {
+        if (!confirm(`删除「${d.name}」草稿？已有冻结版本的战场只能归档。`))
+          return;
+        run(async () => {
+          await api(
+            `/scenarios/${d.id}?expectedVersion=${d.version}`,
+            "DELETE",
+          );
+          if (draft?.id === d.id) {
+            draft = null;
+            selected = null;
+            revision = null;
+            gameRows = [];
+            eventRows = [];
+            $("map").replaceChildren();
+            $("draft-meta").textContent = "尚未部署战场";
+            localStorage.removeItem("tactical-draft-id");
+            renderGamePage();
+            renderEvents();
+          }
+          await listDrafts();
+          message("已删除未冻结草稿。");
+        });
+      });
+      card.append(badge, title, meta, actions);
+      return card;
+    }),
+  );
+  libraryControls();
+}
+$("library-tab").addEventListener("click", () => {
+  switchHeader(true);
+  if (token)
+    run(async () => {
+      await listDrafts();
+      message("战场档案已载入。");
+    });
+});
+$("workspace-tab").addEventListener("click", () => switchHeader(false));
+$("library-refresh").addEventListener("click", () =>
+  run(async () => {
+    await listDrafts();
+    message("战场列表已刷新。");
+  }),
+);
+for (const id of ["library-search", "show-archived"])
+  $(id).addEventListener("input", () => {
+    libraryPage = 0;
+    renderLibrary();
+  });
+$("library-prev").addEventListener("click", () => {
+  libraryPage--;
+  renderLibrary();
+});
+$("library-next").addEventListener("click", () => {
+  libraryPage++;
+  renderLibrary();
+});
+$("rename-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  run(async () => {
+    const updated = await api(`/scenarios/${renameTarget.id}/name`, "PATCH", {
+      expectedVersion: renameTarget.version,
+      name: $("rename-name").value,
+    });
+    if (draft?.id === updated.id) {
+      draft = updated;
+      renderMap();
+    }
+    await listDrafts();
+    $("rename-dialog").close();
+    message("战场名称已更新；冻结版本保留原名称。");
+  });
+});
+
 controls();
 $("auth-dialog").showModal();

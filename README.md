@@ -1,6 +1,6 @@
 # 战术编排 · Tactical Orchestration
 
-M1.1：单屏游戏工作台，支持六角地图编辑、双方团连与补给部署、场景冻结及独立实验实例。
+M1.2：战场管理与单屏游戏工作台，支持六角地图编辑、双方团连与补给部署、场景冻结及独立实验实例。
 M0 的 HTTP 认证、输入边界、自动 OpenAPI 和 Maven 构建继续生效。战斗结算从 M2 开始。
 
 ## 环境与构建
@@ -54,7 +54,7 @@ curl -i http://127.0.0.1:8080/api/v1/system
 接口结构从运行服务的 OpenAPI 获取，不再维护重复的手填 `.http` 样例。
 契约检查不创建场景、不执行命令；版本与错误约定见 [contracts.md](docs/contracts.md)。
 
-## 游戏工作台（M1.1）
+## 游戏工作台（M1.2）
 
 启动后打开 `http://127.0.0.1:8080/`，将 `.runtime/session.token` 的内容粘贴到页面并连接。
 
@@ -122,3 +122,6 @@ PLAYWRIGHT_MODULE=/path/to/playwright node scripts/browser-smoke.mjs
 脚本从空白地图完成编辑、冻结、双实验、刷新、错误展示和导入导出，并验证六连分页、
 多实验分页、地图缩放和目标分辨率布局。截图输出到 `tactical-server/target/m1.1-game.png`。
 可设置 `BROWSER_BIND_ADDRESS` 为本机 WSL IP，验证 HTTP IP 来源的完整流程。
+
+顶部「战场管理」独立页签提供搜索、重命名、复制、归档／恢复和删除。复制仅复制部署，
+不继承冻结版本或实验；已有冻结版本的战场只能归档，保留实验来源。列表六项分页。
