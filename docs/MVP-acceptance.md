@@ -1,0 +1,55 @@
+# MVP 逐节点验收
+
+## M0 — 工程骨架与 HTTP 安全入口
+
+日期：2026-09-27。版本：`0.1.0-SNAPSHOT`，对应包含本记录的 Git 提交。
+环境：Linux x86_64 / WSL2，OpenJDK 25.0.3，全局 Maven 3.9.9，
+Spring Boot 4.0.8，JUnit 6.0.3。
+
+| 门禁 | 结果与证据 |
+|---|---|
+| 四模块、纯 Java 引擎边界 | core → simulation → application → server 的被依赖方向；Maven Enforcer `pure-engine` 检查核心运行时无 Spring、JavaFX、Servlet |
+| 干净构建与格式 | `mvn -o clean verify`，编译、Spotless、测试与可执行 JAR 打包通过；依赖缓存准备后可离线重建 |
+| 自动测试 | 8 项测试通过：1 项应用契约测试 + 7 项真实 HTTP/认证/OpenAPI 集成测试；含多个参数分支 |
+| 独立启动 | `python3 scripts/smoke-test.py` 启动打包 JAR，通过后自动关闭进程 |
+| 认证 | cURL 无令牌/错误令牌 401，合法令牌 200；令牌仅通过认证头使用，查询参数不能认证 |
+| 监听 | 检查实际 TCP 监听仅回环；对本机 1 个非回环 IPv4 地址连接被拒绝 |
+| 输入与错误 | 非法 JSON/版本/字段 400，未知路由 404，方法错误 405，类型/编码错误 415，定长与分块超大请求 413 |
+| 凭据 | 每次启动随机 256 bit；令牌文件 0600；轮换旧令牌失效；独立启动日志不含令牌 |
+| 接口材料 | `docs/api-examples.http`、`docs/contracts.md`、从代码生成且认证保护的 `/api/v1/openapi`；校验字段约束、响应类型与安全声明 |
+| 版本固定 | 父 POM/BOM 统一固定依赖和插件版本；无 Wrapper，README 说明全局 Maven 兼容版本 |
+
+测试结果路径：
+
+- `tactical-application/target/surefire-reports/`
+- `tactical-server/target/surefire-reports/`
+- 各模块 `target/surefire-reports/TEST-*.xml`
+
+独立产物验证输出：
+
+```text
+PASS: executable JAR, curl 200/401/400, OpenAPI, loopback binding, 1 external interface refusal(s), no token in logs
+```
+
+构建/验证命令：
+
+```sh
+mvn spotless:apply clean verify
+mvn -o clean verify
+python3 scripts/smoke-test.py
+```
+
+结论：M0 门禁通过，可以进入 M1。
+
+已知限制与下一节点输入：
+
+- 当前正式验证范围为 Linux POSIX 文件系统；Windows 令牌 ACL 尚未实现，不声称跨平台验收通过。
+- 首次依赖获取需要网络；离线重建必须预先准备完整缓存。完整新机器安装未实测，已验证当前环境的 clean + offline 构建。
+- M0 契约接口只验证版本和标识元信息，不创建场景、不推进战局。场景载荷和生命周期属于 M1/M2。
+- 容器层拒绝的畸形 HTTP/超大请求头不保证统一 JSON；应用层错误统一。
+- TECH 与 PLAN 已同步为原生 Web、全局 Maven、代码生成 OpenAPI；不提交生成文档。
+- M1 从六角地图/格边领域模型、场景草稿 API、冻结哈希和同源原生 Web 编辑器开始。
+
+## M1–M6
+
+未开始，未验收。

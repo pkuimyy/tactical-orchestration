@@ -1,0 +1,35 @@
+# Copy the current token from .runtime/session.token into your HTTP client's
+# private environment as `token`. Do not commit it. Server must be running.
+@baseUrl = http://127.0.0.1:8080
+
+### Public health: 200
+GET {{baseUrl}}/health
+
+### Missing token: 401
+GET {{baseUrl}}/api/v1/system
+
+### Wrong token: 401
+GET {{baseUrl}}/api/v1/system
+Authorization: Bearer invalid
+
+### Protected metadata: 200
+GET {{baseUrl}}/api/v1/system
+Authorization: Bearer {{token}}
+
+### OpenAPI: 200
+GET {{baseUrl}}/api/v1/openapi
+Authorization: Bearer {{token}}
+
+### Validate metadata, without creating or executing state: 200
+POST {{baseUrl}}/api/v1/contracts/validate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"schemaVersion":1,"kind":"SCENARIO","id":"river-crossing"}
+
+### Unsupported version: 400
+POST {{baseUrl}}/api/v1/contracts/validate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"schemaVersion":2,"kind":"COMMAND","id":"order-1"}

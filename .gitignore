@@ -1,0 +1,11 @@
+.codex/*
+!.codex/design/
+**/target/
+.runtime/
+*.log
+openapi.json
+openapi.yaml
+openapi.yml
+# Local caches left by the former build system
+.gradle/
+.gradle-home/
