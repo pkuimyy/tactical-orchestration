@@ -13,7 +13,7 @@
         <span class="brand-mark">策</span>
         <div>
           <h1>战术编排</h1>
-          <span class="eyebrow">TACTICAL ORCHESTRATION · M4</span>
+          <span class="eyebrow">TACTICAL ORCHESTRATION · M5</span>
         </div>
       </div>
       <nav class="header-tabs" aria-label="主导航">
@@ -38,6 +38,7 @@
         </select></label
       ><button id="new-scenario" class="secondary" data-auth>新建战场</button
       ><button id="preset" data-auth>河谷突破</button
+      ><button id="preset-lab" class="secondary" data-auth>河谷实验</button
       ><button id="preset-recon" class="secondary" data-auth>追击验证</button
       ><button id="preset-coordination" class="secondary" data-auth>
         渡河协作</button
@@ -75,6 +76,14 @@
         <div class="map-header">
           <span class="map-caption">作战地图 <small>DEPLOYMENT</small></span>
           <div class="map-actions">
+            <button
+              id="map-inspect"
+              class="secondary"
+              aria-pressed="false"
+              hidden
+            >
+              检视部队
+            </button>
             <button id="zoom-out" class="secondary" aria-label="缩小地图">
               −</button
             ><button id="zoom-reset" class="secondary">适应战场</button
@@ -123,7 +132,40 @@
           <button data-tab="relay-panel" role="tab" aria-selected="false">
             通信
           </button>
+          <button data-tab="intel-panel" role="tab" aria-selected="false">
+            情报
+          </button>
         </nav>
+        <section id="intel-panel" class="inspector-page" role="tabpanel" hidden>
+          <h3>初始情报 / 实验方案</h3>
+          <form id="intel-form">
+            <label>观察者<select id="intel-observer"></select></label>
+            <label
+              >已知部队 ID（逗号分隔）<input
+                id="intel-units"
+                placeholder="例如 red-guard"
+            /></label>
+            <label
+              >已知补给 ID<input
+                id="intel-supplies"
+                placeholder="例如 blue-rear"
+            /></label>
+            <label
+              >已知通信工事 ID<input
+                id="intel-relays"
+                placeholder="例如 blue-relay"
+            /></label>
+            <button data-draft>保存初始情报</button>
+          </form>
+          <p id="intel-candidates" class="hint"></p>
+          <p id="setup-summary" class="hint"></p>
+          <button id="clear-setup" class="secondary" data-draft>
+            清空已存首日方案
+          </button>
+          <p class="hint">
+            情报引用真实部署的初始快照，仅交给所选观察者。双方命令、学说和依赖可在推演中另存为新草稿。
+          </p>
+        </section>
         <section id="relay-panel" class="inspector-page" role="tabpanel" hidden>
           <h3>通信工事</h3>
           <form id="relay-form">
@@ -489,9 +531,37 @@
         <p id="turn-result" class="hint">
           双方均须提交并确认；重复结算请求不会多推进一天。
         </p>
-        <p class="hint">
-          战损按连结算。点击指挥记录查看火力、战损和学说依据；「战况」查看结算前后对比。
-        </p>
+        <div class="replay-toolbar">
+          <button id="replay-start" class="secondary">回放所选日</button
+          ><button id="replay-prev" class="secondary" aria-label="上一帧">
+            ◀</button
+          ><button id="replay-play" class="secondary">播放</button
+          ><button id="replay-pause" class="secondary">暂停</button
+          ><button id="replay-next" class="secondary" aria-label="下一帧">
+            ▶</button
+          ><input
+            id="replay-frame"
+            type="range"
+            min="0"
+            max="0"
+            value="0"
+            aria-label="回放帧"
+          /><span id="replay-time">实时指挥</span
+          ><button id="replay-exit" class="secondary">返回当前</button
+          ><button id="save-blueprint" class="secondary">另存实验方案</button>
+        </div>
+        <div class="event-filters">
+          <label
+            >团<select id="event-unit">
+              <option value="">全部团</option>
+            </select></label
+          ><label
+            >任务<select id="event-task">
+              <option value="">全部任务</option>
+            </select></label
+          ><button id="event-reset" class="secondary">清除筛选</button
+          ><span id="event-count" class="hint"></span>
+        </div>
       </section>
       <section class="journal panel">
         <div class="section-heading">
@@ -558,7 +628,8 @@
       </form>
     </dialog>
     <footer>
-      <span id="status" role="status" aria-live="polite"
+      <button id="retry-request" class="secondary" hidden>重新载入</button
+      ><span id="status" role="status" aria-live="polite"
         >连接指挥终端，开始部署。</span
       ><span class="build-status">部署阶段 · 回合结算未开放</span>
     </footer>

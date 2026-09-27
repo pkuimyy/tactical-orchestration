@@ -54,6 +54,48 @@ public final class DaySimulation {
     }
   }
 
+  /** A completed equal-time batch, never a partially applied combat state. */
+  public record Frame(
+      int day,
+      int tick,
+      String phase,
+      Scenario world,
+      Map<Side, IntelligenceState.Knowledge> divisions,
+      int eventCount,
+      List<OperationRuntime.State> operations) {
+    public Frame {
+      divisions = Collections.unmodifiableMap(new TreeMap<>(divisions));
+      operations = List.copyOf(operations);
+    }
+  }
+
+  private static Frame frame(
+      int day,
+      int tick,
+      String phase,
+      Scenario world,
+      IntelligenceState intelligence,
+      Map<String, IntelligenceState.Knowledge> observations,
+      int eventCount,
+      List<OperationRuntime> operations) {
+    var divisions = new TreeMap<>(intelligence.divisions());
+    for (var r : world.regiments())
+      if (r.role() == Role.DIVISION_HQ)
+        divisions.put(
+            r.side(),
+            divisions
+                .get(r.side())
+                .merge(observations.getOrDefault(r.id(), IntelligenceState.Knowledge.empty())));
+    return new Frame(
+        day,
+        tick,
+        phase,
+        world,
+        divisions,
+        eventCount,
+        operations.stream().flatMap(op -> op.states().stream()).toList());
+  }
+
   public record CompanyReport(
       String id,
       CompanyType type,
@@ -141,71 +183,7 @@ public final class DaySimulation {
 
   public static List<MovementOrder> validate(
       Scenario world, Side side, List<MovementOrder> orders) {
-    if (side == null || orders == null || orders.size() > 32)
-      throw new ScenarioViolation("必须指定阵营及最多 32 条命令");
-    Set<String> ids = new HashSet<>(), units = new HashSet<>();
-    for (var o : orders) {
-      if (o == null || !ids.add(o.orderId()) || !units.add(o.regimentId()))
-        throw new ScenarioViolation("命令 ID 和被指挥团不得重复");
-      var r =
-          world.regiments().stream()
-              .filter(u -> u.id().equals(o.regimentId()))
-              .findFirst()
-              .orElseThrow(() -> new ScenarioViolation("命令中的团不存在"));
-      if (r.side() != side) throw new ScenarioViolation("不得向另一方部队下令");
-      if (r.role() == Role.DIVISION_HQ && !o.route().isEmpty())
-        throw new ScenarioViolation("城市师部不可移动");
-      if (o.action() == MovementOrder.Action.BOMBARD) {
-        if (o.target().q() < 0
-            || o.target().q() >= world.width()
-            || o.target().r() < 0
-            || o.target().r() >= world.height()
-            || r.position().distance(o.target()) < 1
-            || r.position().distance(o.target()) > 3
-            || r.companies().stream()
-                .noneMatch(c -> c.hp() > 0 && c.type() == CompanyType.ARTILLERY))
-          throw new ScenarioViolation("炮击需要有效炮兵连及 1–3 格内的目标");
-      }
-      if (o.action() == MovementOrder.Action.BUILD_BRIDGE
-          || o.action() == MovementOrder.Action.STRIKE_RELAY) {
-        var target = o.target();
-        if (target.q() < 0
-            || target.r() < 0
-            || target.q() >= world.width()
-            || target.r() >= world.height()) throw new ScenarioViolation("设施目标超出地图");
-        if (o.action() == MovementOrder.Action.BUILD_BRIDGE
-            && (r.position().distance(target) != 1
-                || r.companies().stream()
-                    .noneMatch(c -> c.hp() > 0 && c.type() == CompanyType.ENGINEER)
-                || world.edges().stream()
-                    .noneMatch(
-                        e ->
-                            e.river()
-                                && (e.a().equals(target) || e.b().equals(target))
-                                && r.position().distance(e.a()) <= 1
-                                && r.position().distance(e.b()) <= 1)))
-          throw new ScenarioViolation("架桥需要工兵及本团相邻河流边");
-        if (o.action() == MovementOrder.Action.STRIKE_RELAY
-            && (r.position().distance(target)
-                    > (r.companies().stream()
-                            .anyMatch(c -> c.hp() > 0 && c.type() == CompanyType.ARTILLERY)
-                        ? 3
-                        : 1)
-                || world.communicationNodes().stream()
-                    .noneMatch(n -> n.side() != side && n.position().equals(target))))
-          throw new ScenarioViolation("目标必须为射程内敌方通信工事");
-      }
-      var from = r.position();
-      for (var to : o.route()) {
-        if (to.q() < 0
-            || to.r() < 0
-            || to.q() >= world.width()
-            || to.r() >= world.height()
-            || from.distance(to) != 1) throw new ScenarioViolation("路径必须由地图内的相邻格组成");
-        from = to;
-      }
-    }
-    return orders.stream().sorted(Comparator.comparing(MovementOrder::regimentId)).toList();
+    return OrderRules.validate(world, side, orders);
   }
 
   public Result resolve(
@@ -250,6 +228,32 @@ public final class DaySimulation {
       OperationPlan blueOperation,
       OperationPlan redOperation,
       IntelligenceState intelligence) {
+    return resolve(
+        input,
+        day,
+        seed,
+        maxIterations,
+        blue,
+        red,
+        memory,
+        blueOperation,
+        redOperation,
+        intelligence,
+        null);
+  }
+
+  public Result resolve(
+      Scenario input,
+      int day,
+      long seed,
+      int maxIterations,
+      List<MovementOrder> blue,
+      List<MovementOrder> red,
+      Map<String, RegimentMemory> memory,
+      OperationPlan blueOperation,
+      OperationPlan redOperation,
+      IntelligenceState intelligence,
+      java.util.function.Consumer<Frame> observer) {
     var operations = new ArrayList<OperationRuntime>();
     if (blueOperation != null) {
       blueOperation.validate(input, Side.BLUE, blue);
@@ -266,6 +270,7 @@ public final class DaySimulation {
     Map<String, HexCoord> positions = new TreeMap<>();
     input.regiments().forEach(r -> positions.put(r.id(), r.position()));
     List<Event> events = new ArrayList<>();
+    Set<String> reportedOutcomes = new HashSet<>();
     List<Task> tasks = new ArrayList<>();
     // Common environmental departure delay cannot reverse any relative movement advantage.
     int departure = Integer.parseInt(key(seed, day, "environment").substring(0, 2), 16) % 4;
@@ -281,6 +286,9 @@ public final class DaySimulation {
             events,
             day,
             departure);
+    if (observer != null)
+      observer.accept(frame(day, 0, "PLANNING", input, intelligence, Map.of(), 0, operations));
+    int capturedEvents = 0;
     battle.priorKnowledge = intelligence.regiments();
     battle.observeAll();
     for (var o : commands) {
@@ -630,7 +638,23 @@ public final class DaySimulation {
         for (var t : due)
           if (!t.stopped && !newWithdrawals.contains(t))
             schedule(battle.world(), positions, t, tick, day, iteration, events);
+        var current = battle.world();
+        operations.forEach(op -> op.outcomes(current, events));
+        publishOutcomes(operations, reportedOutcomes, events, day, iteration, tick);
         battle.observeAll();
+        if (observer != null && events.size() != capturedEvents) {
+          observer.accept(
+              frame(
+                  day,
+                  tick,
+                  "ACTION",
+                  current,
+                  intelligence,
+                  battle.observations,
+                  events.size(),
+                  operations));
+          capturedEvents = events.size();
+        }
       }
     }
     for (var t : tasks)
@@ -649,8 +673,20 @@ public final class DaySimulation {
             "达到当日迭代上限；剩余路径需次日重新下令");
     battle.rest(deadline);
     Scenario world = battle.world();
-    battle.observeAll();
     operations.forEach(op -> op.outcomes(world, events));
+    publishOutcomes(operations, reportedOutcomes, events, day, maxIterations, deadline);
+    battle.observeAll();
+    if (observer != null)
+      observer.accept(
+          frame(
+              day,
+              deadline,
+              "DAY_END",
+              world,
+              intelligence,
+              battle.observations,
+              events.size(),
+              operations));
     var nextIntelligence = intelligence.advance(world, day + 1, battle.observations);
     var nextMemory = nextIntelligence.shareSupplies(battle.memory);
     var reportQueue = new ArrayList<>(intelligence.pending());
@@ -689,6 +725,17 @@ public final class DaySimulation {
                 null));
       }
 
+    if (observer != null)
+      observer.accept(
+          frame(
+              day + 1,
+              0,
+              "REPORTS_AVAILABLE",
+              world,
+              nextIntelligence,
+              Map.of(),
+              events.size(),
+              operations));
     return new Result(
         day,
         world,
@@ -698,6 +745,44 @@ public final class DaySimulation {
         reports(input, world),
         nextIntelligence,
         operations.stream().flatMap(op -> op.states().stream()).toList());
+  }
+
+  private static void publishOutcomes(
+      List<OperationRuntime> operations,
+      Set<String> reported,
+      List<Event> events,
+      int day,
+      int iteration,
+      int tick) {
+    for (var op : operations)
+      for (var state : op.states()) {
+        String key = state.regimentId() + ":" + state.orderId();
+        if (!state.fact().equals("UNKNOWN") && reported.add(key)) {
+          events.add(
+              new Event(
+                  1,
+                  "d" + day + "-e" + (events.size() + 1),
+                  "OperationOutcome",
+                  state.fact().equals("SUCCESS") ? "SUCCEEDED" : "FAILED",
+                  day,
+                  iteration,
+                  tick,
+                  0,
+                  state.orderId(),
+                  state.regimentId(),
+                  state.resultPosition(),
+                  state.resultPosition(),
+                  List.of(state.regimentId()),
+                  "operation="
+                      + state.operationId()
+                      + "; fact="
+                      + state.fact()
+                      + "; 任务结果与后续学说行动分别记录",
+                  null,
+                  null,
+                  null));
+        }
+      }
   }
 
   public static String stateHash(int day, Scenario world, Map<String, RegimentMemory> memory) {

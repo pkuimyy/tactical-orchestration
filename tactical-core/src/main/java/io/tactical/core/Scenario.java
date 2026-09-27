@@ -13,7 +13,9 @@ public record Scenario(
     List<Regiment> regiments,
     List<Supply> supplies,
     List<CommunicationNode> communicationNodes,
-    Integer communicationRadius) {
+    Integer communicationRadius,
+    ExperimentSetup setup,
+    List<InitialKnowledge> initialKnowledge) {
   public Scenario(
       int schemaVersion,
       String name,
@@ -26,7 +28,36 @@ public record Scenario(
     this(schemaVersion, name, width, height, cells, edges, regiments, supplies, List.of(), 5);
   }
 
+  public Scenario(
+      int schemaVersion,
+      String name,
+      int width,
+      int height,
+      List<Cell> cells,
+      List<Edge> edges,
+      List<Regiment> regiments,
+      List<Supply> supplies,
+      List<CommunicationNode> communicationNodes,
+      Integer communicationRadius) {
+    this(
+        schemaVersion,
+        name,
+        width,
+        height,
+        cells,
+        edges,
+        regiments,
+        supplies,
+        communicationNodes,
+        communicationRadius,
+        ExperimentSetup.empty(),
+        List.of());
+  }
+
   public Scenario {
+    setup = setup == null ? ExperimentSetup.empty() : setup;
+    initialKnowledge =
+        initialKnowledge == null ? List.of() : copy(initialKnowledge, "initialKnowledge");
     communicationNodes =
         communicationNodes == null ? List.of() : copy(communicationNodes, "communicationNodes");
     communicationRadius = communicationRadius == null ? 5 : communicationRadius;

@@ -61,16 +61,22 @@ public final class BattleSession {
   private IntelligenceState intelligence;
   private final Map<Side, Batch> batches = new EnumMap<>(Side.class);
   private final Map<Integer, Day> history = new TreeMap<>();
+  private final Map<Integer, List<DaySimulation.Frame>> timelines = new TreeMap<>();
 
   public BattleSession(Scenario world, long seed, int iterations) {
     if (iterations < 1 || iterations > 8) throw new ScenarioViolation("事件迭代上限为 1–8");
     this.world = world;
     this.memory = RegimentMemory.initial(world);
     this.intelligence = IntelligenceState.initial(world);
+    this.memory = intelligence.shareSupplies(this.memory);
     this.seed = seed;
     this.iterations = iterations;
     initialHash = ScenarioHash.sha256(world);
     reset();
+    batches.put(
+        Side.BLUE, new Batch(0, false, false, world.setup().blue(), world.setup().blueOperation()));
+    batches.put(
+        Side.RED, new Batch(0, false, false, world.setup().red(), world.setup().redOperation()));
   }
 
   public View view() {
@@ -146,6 +152,7 @@ public final class BattleSession {
             batches.get(Side.BLUE).operation(),
             batches.get(Side.RED).operation(),
             intelligence);
+    var frames = new ArrayList<DaySimulation.Frame>();
     var result =
         new DaySimulation()
             .resolve(
@@ -158,9 +165,11 @@ public final class BattleSession {
                 memory,
                 manifest.blueOperation(),
                 manifest.redOperation(),
-                intelligence);
+                intelligence,
+                frames::add);
     var record = new Day(manifest, result);
     history.put(day, record);
+    timelines.put(day, List.copyOf(frames));
     world = result.world();
     memory = result.memory();
     intelligence = result.intelligence();
@@ -184,14 +193,30 @@ public final class BattleSession {
       List<CommunicationNetwork.Link> links,
       List<DaySimulation.UnitReport> units,
       List<DaySimulation.Event> events,
-      int pendingReports) {}
+      int pendingReports,
+      Map<String, UnitPresentation.Marker> markers) {}
 
   public PlayerView projection(Perspective perspective, Side side) {
     if (perspective == null || side == null) throw new ScenarioViolation("需要观察视角与阵营");
-    var knowledge = intelligence.divisions().get(side);
+    return project(
+        completedDays + 1,
+        perspective,
+        side,
+        world,
+        intelligence.divisions().get(side),
+        completedDays == 0 ? List.of() : history.get(completedDays).result().events(),
+        intelligence.pending().size());
+  }
+
+  private static PlayerView project(
+      int day,
+      Perspective perspective,
+      Side side,
+      Scenario world,
+      IntelligenceState.Knowledge knowledge,
+      List<DaySimulation.Event> events,
+      int pending) {
     Scenario projected = world;
-    List<DaySimulation.Event> events =
-        completedDays == 0 ? List.of() : history.get(completedDays).result().events();
     if (perspective == Perspective.DIVISION) {
       projected =
           new Scenario(
@@ -214,7 +239,7 @@ public final class BattleSession {
     }
     var network = new CommunicationNetwork(projected);
     return new PlayerView(
-        completedDays + 1,
+        day,
         perspective,
         side,
         projected,
@@ -223,7 +248,53 @@ public final class BattleSession {
         network.links(),
         DaySimulation.reports(projected, projected),
         events,
-        perspective == Perspective.OMNISCIENT ? intelligence.pending().size() : -1);
+        perspective == Perspective.OMNISCIENT ? pending : -1,
+        UnitPresentation.markers(projected));
+  }
+
+  public record Replay(
+      int index,
+      int count,
+      int tick,
+      String phase,
+      PlayerView view,
+      List<OperationRuntime.State> operations,
+      OperationPlan plan) {}
+
+  public Replay replay(int day, int index, Perspective perspective, Side side) {
+    if (perspective == null || side == null) throw new ScenarioViolation("需要观察视角与阵营");
+    var archive = day(day);
+    var frames = timelines.get(day);
+    if (perspective == Perspective.DIVISION) {
+      var visible = new ArrayList<DaySimulation.Frame>();
+      for (var f : frames)
+        if (visible.isEmpty()
+            || f.phase().equals("REPORTS_AVAILABLE")
+            || !f.divisions()
+                .get(side)
+                .events()
+                .equals(visible.getLast().divisions().get(side).events())) visible.add(f);
+      frames = visible;
+    }
+    if (index < 0 || index >= frames.size()) throw new ScenarioViolation("回放帧超出范围");
+    var f = frames.get(index);
+    var view =
+        project(
+            f.day(),
+            perspective,
+            side,
+            f.world(),
+            f.divisions().get(side),
+            archive.result().events().subList(0, f.eventCount()),
+            -1);
+    return new Replay(
+        index,
+        frames.size(),
+        f.tick(),
+        f.phase(),
+        view,
+        perspective == Perspective.OMNISCIENT ? f.operations() : List.of(),
+        side == Side.BLUE ? archive.manifest().blueOperation() : archive.manifest().redOperation());
   }
 
   public Day day(int day) {

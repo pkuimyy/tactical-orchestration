@@ -120,7 +120,7 @@ with tempfile.TemporaryDirectory(prefix='tactical-smoke-') as work:
         (root / 'tactical-server/target/m2-http-run.json').write_text(json.dumps(results[0], ensure_ascii=False, indent=2) + '\n')
         print('M2 state hash:', results[0]['result']['stateHash'])
         print('M2 events SHA-256:', hashlib.sha256(logs[0].encode()).hexdigest())
-        expected = json.loads((root / 'scenarios/m4-recon-expected.json').read_text())
+        expected = json.loads((root / 'scenarios/m5-recon-expected.json').read_text())
         assert results[0]['manifest']['rulesVersion'] == expected['rulesVersion']
         assert results[0]['manifest']['randomVersion'] == expected['randomVersion']
         assert results[0]['result']['stateHash'] == expected['stateHash']
@@ -137,12 +137,12 @@ with tempfile.TemporaryDirectory(prefix='tactical-smoke-') as work:
         # M3: real HTTP combat, known-only retreat, stock use and replayable manifests.
         combat = json.loads((root / 'scenarios/m3-combat-line.json').read_text())
         combat_orders = json.loads((root / 'scenarios/m3-combat-orders.json').read_text())
-        def frozen_game(scenario):
+        def frozen_game(scenario, iterations=4):
             status, draft = request('/api/v1/scenarios/import', token, json.dumps(scenario))
             assert status == 201
             status, revision = request(f"/api/v1/scenarios/{draft['id']}/revisions", token, '{"expectedVersion":1}')
             assert status == 200
-            status, game = request('/api/v1/games', token, json.dumps({'revisionId':revision['id'], 'seed':42}))
+            status, game = request('/api/v1/games', token, json.dumps({'revisionId':revision['id'], 'seed':42, 'maxIterations':iterations}))
             assert status == 201
             return f"/api/v1/games/{game['id']}"
         def resolve_orders(path, day, blue, red, blue_operation=None, red_operation=None):
@@ -182,7 +182,7 @@ with tempfile.TemporaryDirectory(prefix='tactical-smoke-') as work:
         assert [json.loads(line) for line in combat_jsonl.splitlines()] == combat_result['result']['events']
         (root / 'tactical-server/target/m3-http-run.json').write_text(json.dumps(combat_result,ensure_ascii=False,indent=2)+'\n')
         (root / 'tactical-server/target/m3-http-events.jsonl').write_text(combat_jsonl)
-        expected_combat = json.loads((root / 'scenarios/m4-combat-expected.json').read_text())
+        expected_combat = json.loads((root / 'scenarios/m5-combat-expected.json').read_text())
         assert combat_result['manifest']['rulesVersion'] == expected_combat['rulesVersion']
         assert combat_result['result']['stateHash'] == expected_combat['stateHash']
         assert len(combat_result['result']['events']) == expected_combat['eventCount']
@@ -217,11 +217,56 @@ with tempfile.TemporaryDirectory(prefix='tactical-smoke-') as work:
         river_jsonl=request(river_path+'/days/1/events',token,raw=True)[1]
         (root/'tactical-server/target/m4-http-run.json').write_text(json.dumps(coordinated,ensure_ascii=False,indent=2)+'\n')
         (root/'tactical-server/target/m4-http-events.jsonl').write_text(river_jsonl)
-        golden=json.loads((root/'scenarios/m4-river-expected.json').read_text())
+        golden=json.loads((root/'scenarios/m5-river-expected.json').read_text())
         assert coordinated['result']['stateHash']==golden['stateHash']
         assert hashlib.sha256(river_jsonl.encode()).hexdigest()==golden['eventsSha256']
         assert len(coordinated['result']['events'])==golden['eventCount']
         print('M4: DAG validation, confirmed bridge crossing, N+1 delivery, projection isolation and replay passed')
+        # M5: saved first-day blueprint, authored knowledge, point-in-time replay and markers.
+        lab=json.loads((root/'scenarios/m5-doctrine-lab.json').read_text())
+        bad_lab=json.loads(json.dumps(lab)); bad_lab['initialKnowledge'][0]['regimentIds']=['missing']
+        assert request('/api/v1/scenarios/import',token,json.dumps(bad_lab))[0]==400
+        lab_path=frozen_game(lab,6)
+        planning=request(lab_path+'/turn',token)[1]
+        assert planning['blue']['operation']['nodes'] and len(planning['blue']['orders'])==3
+        assert not planning['blue']['submitted']
+        for side in ['BLUE','RED']:
+            batch=planning[side.lower()]
+            assert request(lab_path+'/orders/'+side,token,json.dumps({'day':1,'expectedVersion':0,'orders':batch['orders'],'operation':batch['operation']}),method='PUT')[0]==200
+        assert request(lab_path+'/blueprint',token,'{"day":1,"blueVersion":0,"redVersion":1}')[0]==409
+        status,blueprint=request(lab_path+'/blueprint',token,'{"day":1,"blueVersion":1,"redVersion":1}')
+        assert status==201
+        assert blueprint['scenario']['setup']['blue']==planning['blue']['orders']
+        assert blueprint['scenario']['initialKnowledge']==lab['initialKnowledge']
+        markers=request('/api/v1/scenarios/'+blueprint['id']+'/markers',token)[1]
+        assert markers['red-line']['bottleneckEquipment']=='FOOT'
+        for side in ['BLUE','RED']:
+            assert request(lab_path+'/commit/'+side,token,'{"day":1,"expectedVersion":1}')[0]==200
+        status,lab_result=request(lab_path+'/resolve',token,'{"day":1}')
+        assert status==200
+        reopened=frozen_game(blueprint['scenario'],6)
+        assert lab_result==resolve_orders(reopened,1,planning['blue']['orders'],planning['red']['orders'],planning['blue']['operation'],planning['red']['operation'])
+        assert request(lab_path+'/blueprint',token,'{"day":1,"blueVersion":1,"redVersion":1}')[0]==409
+        first=request(lab_path+'/days/1/replay?perspective=OMNISCIENT&side=BLUE',token)[1]
+        assert first['index']==0 and first['phase']=='PLANNING' and first['view']['events']==[]
+        assert first['view']['world']['edges'][0]['bridge']=='DESTROYED'
+        assert 3<first['count']<=124
+        final=request(lab_path+f"/days/1/replay?perspective=OMNISCIENT&side=BLUE&frame={first['count']-1}",token)[1]
+        assert final['view']['world']==lab_result['result']['world']
+        assert final['view']['events']==lab_result['result']['events']
+        division=request(lab_path+'/days/1/replay?perspective=DIVISION&side=BLUE',token)[1]
+        for frame in range(division['count']):
+            shown=request(lab_path+f'/days/1/replay?perspective=DIVISION&side=BLUE&frame={frame}',token)[1]
+            if shown['phase']!='REPORTS_AVAILABLE':
+                line=shown['view']['knowledge']['contacts']['red-line']['unit']
+                assert all(c['hp']==c['maxHp'] for c in line['companies'])
+            assert shown['operations']==[]
+        assert request(lab_path+'/days/1/replay?frame=9999',token)[0]==400
+        assert request(lab_path+'/days/2/replay',token)[0]==404
+        assert request(lab_path+'/days/1',token)[1]==lab_result
+        (root/'tactical-server/target/m5-lab-run.json').write_text(json.dumps(lab_result,ensure_ascii=False,indent=2)+'\n')
+        (root/'tactical-server/target/m5-replay-final.json').write_text(json.dumps(final,ensure_ascii=False,indent=2)+'\n')
+        print('M5: blueprint reopen, authored intelligence, server markers, historical projection and immutable replay passed')
         # Validate actual listening sockets, not merely the configured property.
         listeners = []
         for filename in ['/proc/net/tcp', '/proc/net/tcp6']:
@@ -241,7 +286,7 @@ with tempfile.TemporaryDirectory(prefix='tactical-smoke-') as work:
                 assert connection.connect_ex((address, port)) != 0, 'Non-loopback connection accepted'
                 tested += 1
         assert token not in log_path.read_text(), 'Credential leaked into server logs'
-        print(f'PASS: executable JAR, curl 200/401/400, generated OpenAPI, M1 freeze/two independent games, M2 submit/commit/resolve/replay and invalid lifecycle rejection, M3 combat/knowledge-only retreat/rest, M4 coordination/projection and golden hashes, loopback binding, {tested} external interface refusal(s), no token in logs')
+        print(f'PASS: executable JAR, curl 200/401/400, generated OpenAPI, M1 freeze/two independent games, M2 submit/commit/resolve/replay and invalid lifecycle rejection, M3 combat/knowledge-only retreat/rest, M4 coordination/projection and golden hashes, M5 blueprint/initial knowledge/replay, loopback binding, {tested} external interface refusal(s), no token in logs')
     finally:
         server.terminate()
         try:

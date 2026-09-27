@@ -1,0 +1,12 @@
+{
+  "rulesVersion": "m5-lab-1",
+  "randomVersion": "sha256-keyed-v1",
+  "stateHash": "f307862c60001d1ce7a73ce09121b8bbab73bcb79876cbb409e8936781726941",
+  "eventsSha256": "18b367c6ef6bf76cdf76e065f3380870a7314bdd8cf46669749793ce2c2eeed2",
+  "eventCount": 25,
+  "assaultPosition": {
+    "q": 1,
+    "r": 1
+  },
+  "assaultInfantryHp": 87
+}

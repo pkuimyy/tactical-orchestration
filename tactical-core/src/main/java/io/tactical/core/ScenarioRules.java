@@ -137,6 +137,15 @@ public final class ScenarioRules {
           "通信工事 ID 或位置重复");
       check(node.side() != null && node.hp() >= 0 && node.hp() <= 1000, "通信工事需要阵营及 0–1000 HP");
     }
+    if (!runtime) {
+      check(s.initialKnowledge().size() <= 32, "初始情报最多 32 个观察者");
+      var observers = new HashSet<String>();
+      for (var k : s.initialKnowledge()) {
+        check(observers.add(k.observerId()), "初始情报观察者重复");
+        k.validate(s);
+      }
+      s.setup().validate(s);
+    }
     return new Scenario(
         s.schemaVersion(),
         s.name(),
@@ -149,7 +158,11 @@ public final class ScenarioRules {
         s.communicationNodes().stream()
             .sorted(Comparator.comparing(CommunicationNode::id))
             .toList(),
-        s.communicationRadius());
+        s.communicationRadius(),
+        s.setup(),
+        s.initialKnowledge().stream()
+            .sorted(Comparator.comparing(InitialKnowledge::observerId))
+            .toList());
   }
 
   public static void requirePlayable(Scenario s) {

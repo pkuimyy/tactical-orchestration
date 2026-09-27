@@ -142,7 +142,38 @@ public record IntelligenceState(
       if (r.role() == Role.DIVISION_HQ)
         divisions.put(r.side(), divisions.get(r.side()).merge(local));
     }
-    return new IntelligenceState(units, brigades, divisions, List.of());
+    var initialReports = new ArrayList<Report>();
+    for (var authored : world.initialKnowledge()) {
+      var observer =
+          world.regiments().stream()
+              .filter(r -> r.id().equals(authored.observerId()))
+              .findFirst()
+              .orElseThrow();
+      var contacts = new TreeMap<String, Contact>();
+      world.regiments().stream()
+          .filter(r -> authored.regimentIds().contains(r.id()))
+          .forEach(r -> contacts.put(r.id(), new Contact(r, 0, false)));
+      var supplies = new TreeMap<String, RegimentMemory.KnownSupply>();
+      world.supplies().stream()
+          .filter(v -> authored.supplyIds().contains(v.id()))
+          .forEach(
+              v ->
+                  supplies.put(
+                      v.id(),
+                      new RegimentMemory.KnownSupply(
+                          v.id(), v.position(), v.side(), v.stock(), 0)));
+      var relays = new TreeMap<String, KnownRelay>();
+      world.communicationNodes().stream()
+          .filter(v -> authored.relayIds().contains(v.id()))
+          .forEach(v -> relays.put(v.id(), new KnownRelay(v, 0)));
+      var knowledge = new Knowledge(contacts, supplies, relays, Map.of(), List.of());
+      initialReports.add(new Report(observer.id(), observer.side(), 0, knowledge));
+      units.put(observer.id(), units.get(observer.id()).merge(knowledge));
+      if (observer.role() == Role.BRIGADE_HQ) brigades.put(observer.id(), units.get(observer.id()));
+      if (observer.role() == Role.DIVISION_HQ)
+        divisions.put(observer.side(), divisions.get(observer.side()).merge(knowledge));
+    }
+    return new IntelligenceState(units, brigades, divisions, initialReports);
   }
 
   public static Knowledge observe(

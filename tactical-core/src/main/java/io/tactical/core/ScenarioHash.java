@@ -77,6 +77,16 @@ public final class ScenarioHash {
           out.writeInt(n.hp());
         }
       }
+      if (!s.setup().equals(ExperimentSetup.empty()) || !s.initialKnowledge().isEmpty()) {
+        out.writeUTF("experiment-v1");
+        // Records contain only normalized enums, bounded IDs and coordinates; preserve empty legacy
+        // encoding.
+        var setupBytes = s.setup().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        out.writeInt(setupBytes.length);
+        out.write(setupBytes);
+        out.writeInt(s.initialKnowledge().size());
+        for (var k : s.initialKnowledge()) out.writeUTF(k.toString());
+      }
       out.flush();
       return HexFormat.of()
           .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes.toByteArray()));

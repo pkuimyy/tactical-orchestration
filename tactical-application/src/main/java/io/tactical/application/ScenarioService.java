@@ -113,7 +113,9 @@ public final class ScenarioService {
             s.regiments(),
             s.supplies(),
             s.communicationNodes(),
-            s.communicationRadius()));
+            s.communicationRadius(),
+            s.setup(),
+            s.initialKnowledge()));
   }
 
   public synchronized Draft copy(String id, long expectedVersion) {
@@ -132,7 +134,9 @@ public final class ScenarioService {
             s.regiments(),
             s.supplies(),
             s.communicationNodes(),
-            s.communicationRadius()));
+            s.communicationRadius(),
+            s.setup(),
+            s.initialKnowledge()));
   }
 
   public synchronized Draft archive(String id, long expectedVersion, boolean value) {
@@ -238,6 +242,44 @@ public final class ScenarioService {
   public synchronized BattleSession.View turn(String id) {
     game(id);
     return battles.get(id).view();
+  }
+
+  public synchronized BattleSession.Replay replay(
+      String id, int day, int frame, BattleSession.Perspective perspective, Side side) {
+    game(id);
+    return battles.get(id).replay(day, frame, perspective, side);
+  }
+
+  public synchronized Draft blueprint(
+      String id, int expectedDay, long blueVersion, long redVersion) {
+    var game = game(id);
+    var turn = battles.get(id).view();
+    if (expectedDay != 1
+        || turn.day() != 1
+        || turn.blue().version() != blueVersion
+        || turn.red().version() != redVersion)
+      throw new StoreProblem(StoreProblem.Kind.CONFLICT, "另存初始实验方案需要第 1 天当前版本；请先提交双方命令");
+    if (!turn.blue().submitted() || !turn.red().submitted())
+      throw new StoreProblem(StoreProblem.Kind.CONFLICT, "请先提交双方命令后另存方案");
+    var s = game.initialState();
+    return importScenario(
+        new Scenario(
+            s.schemaVersion(),
+            s.name(),
+            s.width(),
+            s.height(),
+            s.cells(),
+            s.edges(),
+            s.regiments(),
+            s.supplies(),
+            s.communicationNodes(),
+            s.communicationRadius(),
+            new ExperimentSetup(
+                turn.blue().orders(),
+                turn.red().orders(),
+                turn.blue().operation(),
+                turn.red().operation()),
+            s.initialKnowledge()));
   }
 
   public synchronized BattleSession.PlayerView projection(

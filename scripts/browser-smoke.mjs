@@ -749,10 +749,255 @@ try {
   await page.screenshot({
     path: join(root, "tactical-server/target/m4-coordination.png"),
   });
+  // M5: complete native UI authoring / blueprint reopen / historical observation loop.
+  await page.locator("#workspace-tab").click();
+  await clickAndStatus("#preset-lab", "已载入河谷实验");
+  await page.locator('[data-tab="intel-panel"]').click();
+  await page.locator("#intel-observer").selectOption("blue-engineers");
+  await page.locator("#intel-units").fill("red-guard");
+  await page.locator("#intel-supplies").fill("blue-rear");
+  await clickAndStatus("#intel-form button", "保存成功");
+  const labDraftId = await page.locator("#draft-list").inputValue();
+  const labDraft = await http(`/scenarios/${labDraftId}`);
+  assert.ok(
+    labDraft.scenario.initialKnowledge.some(
+      (k) =>
+        k.observerId === "blue-engineers" &&
+        k.regimentIds.includes("red-guard"),
+    ),
+  );
+  assert.equal(
+    await page
+      .locator('[data-unit-marker="red-line"] [data-type-icon]')
+      .count(),
+    2,
+  );
+  for (const size of [
+    { width: 1980, height: 1080 },
+    { width: 1920, height: 1080 },
+    { width: 1980, height: 960 },
+  ]) {
+    await page.setViewportSize(size);
+    const overflow = await page.evaluate(() =>
+      ["html", "body", ".inspector", "#intel-panel"].filter((s) => {
+        const e = document.querySelector(s);
+        return (
+          e.scrollHeight > e.clientHeight + 2 ||
+          e.scrollWidth > e.clientWidth + 2
+        );
+      }),
+    );
+    assert.deepEqual(
+      overflow,
+      [],
+      `M5 intelligence editor ${size.width}x${size.height}`,
+    );
+  }
+  await clickAndStatus("#freeze", "冻结成功");
+  await clickAndStatus("#create-game", "独立实验已创建");
+  await page
+    .locator(".game")
+    .first()
+    .getByRole("button", { name: "进入推演" })
+    .click();
+  await page.waitForFunction(
+    () => !document.getElementById("turn-panel").hidden,
+  );
+  await page.locator("#side-blue").click();
+  await page.locator('[data-turn-tab="doctrine-page"]').click();
+  await page.locator("#order-unit").selectOption("blue-armor");
+  assert.equal(await page.locator("#doctrine-threshold").inputValue(), "35");
+  await page.locator("#doctrine-threshold").fill("45");
+  await page.locator("#doctrine-threshold").dispatchEvent("change");
+  await clickAndStatus("#submit-orders", "命令已提交");
+  await page.locator("#side-red").click();
+  await clickAndStatus("#submit-orders", "命令已提交");
+  await clickAndStatus("#save-blueprint", "实验方案已另存");
+  const blueprintId = await page.locator("#draft-list").inputValue();
+  const blueprint = await http(`/scenarios/${blueprintId}`);
+  assert.equal(
+    blueprint.scenario.setup.blue.find((o) => o.regimentId === "blue-armor")
+      .doctrine.withdrawBelowPercent,
+    45,
+  );
+  assert.deepEqual(
+    blueprint.scenario.setup.blueOperation.nodes.find(
+      (n) => n.orderId === "cross",
+    ).after,
+    ["bridge", "fire"],
+  );
+  assert.deepEqual(
+    blueprint.scenario.initialKnowledge,
+    labDraft.scenario.initialKnowledge,
+  );
+  await clickAndStatus("#reload", "已从服务端载入");
+  await clickAndStatus("#freeze", "冻结成功");
+  await clickAndStatus("#create-game", "独立实验已创建");
+  const labRevision = (await http(`/scenarios/${blueprintId}/revisions`))[0];
+  const labGame = (await http(`/revisions/${labRevision.id}/games`))[0];
+  await page
+    .locator(".game")
+    .first()
+    .getByRole("button", { name: "进入推演" })
+    .click();
+  await page.waitForFunction(
+    () => !document.getElementById("turn-panel").hidden,
+  );
+  for (const side of ["blue", "red"]) {
+    await page.locator(`#side-${side}`).click();
+    await clickAndStatus("#submit-orders", "命令已提交");
+    await clickAndStatus("#commit-orders", "命令已锁定");
+  }
+  await clickAndStatus("#resolve-day", "第 1 天结算完成");
+  await page.locator("#side-blue").click();
+  const labResult = await http(`/games/${labGame.id}/days/1`);
+  assert.ok(labResult.result.events.some((e) => e.kind === "WITHDRAW"));
+  assert.deepEqual(
+    labResult.result.world.regiments.find((r) => r.id === "blue-armor")
+      .position,
+    { q: 1, r: 1 },
+  );
+  const labCopy = await http("/games", "POST", {
+    revisionId: labRevision.id,
+    seed: labGame.seed,
+    maxIterations: 6,
+  });
+  for (const side of ["BLUE", "RED"]) {
+    await http(`/games/${labCopy.id}/orders/${side}`, "PUT", {
+      day: 1,
+      expectedVersion: 0,
+      orders: labResult.manifest[side.toLowerCase()],
+      operation: labResult.manifest[side.toLowerCase() + "Operation"],
+    });
+    await http(`/games/${labCopy.id}/commit/${side}`, "POST", {
+      day: 1,
+      expectedVersion: 1,
+    });
+  }
+  assert.deepEqual(
+    await http(`/games/${labCopy.id}/resolve`, "POST", { day: 1 }),
+    labResult,
+  );
+  // A slow replay read keeps map tools and inspection tabs usable.
+  await page.route(
+    "**/days/1/replay?**",
+    async (route) => {
+      await pause(600);
+      await route.continue();
+    },
+    { times: 1 },
+  );
+  await page.locator("#replay-start").click();
+  await page.waitForFunction(
+    () => document.body.getAttribute("aria-busy") === "true",
+  );
+  assert.equal(await page.locator("#zoom-in").isDisabled(), false);
+  assert.equal(
+    await page.locator('[data-turn-tab="report-page"]').isDisabled(),
+    false,
+  );
+  await page.locator("#zoom-in").click();
+  await page.waitForFunction(
+    () =>
+      document.body.classList.contains("replaying") &&
+      document.body.getAttribute("aria-busy") === "false",
+  );
+  assert.equal(await page.locator("#resolve-day").isDisabled(), true);
+  await page.locator("#replay-play").click();
+  await page.waitForFunction(
+    () => Number(document.getElementById("replay-frame").value) > 0,
+  );
+  await page.locator("#replay-pause").click();
+  const pausedFrame = await page.locator("#replay-frame").inputValue();
+  await pause(800);
+  assert.equal(await page.locator("#replay-frame").inputValue(), pausedFrame);
+  const seekLast = async () => {
+    await page.locator("#replay-frame").evaluate((e) => {
+      e.value = e.max;
+      e.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await page.waitForFunction(() =>
+      document.getElementById("replay-time").textContent.includes("报告送达"),
+    );
+  };
+  await seekLast();
+  await page.locator("#event-unit").selectOption("blue-armor");
+  await page.locator("#event-task").selectOption("cross");
+  assert.ok((await page.locator("#events [data-event-id]").count()) > 0);
+  for (const eventId of await page
+    .locator("#events [data-event-id]")
+    .evaluateAll((es) => es.map((e) => e.dataset.eventId)))
+    assert.equal(
+      labResult.result.events.find((e) => e.id === eventId).orderId,
+      "cross",
+    );
+  await page.locator("#event-reset").click();
+  await page.locator("#perspective").selectOption("DIVISION");
+  await page.waitForFunction(
+    () =>
+      document.getElementById("replay-frame").value === "0" &&
+      document.body.getAttribute("aria-busy") === "false",
+  );
+  assert.equal(await page.locator('[data-unit-marker="red-guard"]').count(), 0);
+  await seekLast();
+  assert.equal(await page.locator('[data-unit-marker="red-guard"]').count(), 1);
+  for (const size of [
+    { width: 1980, height: 1080 },
+    { width: 1920, height: 1080 },
+    { width: 1980, height: 960 },
+  ]) {
+    await page.setViewportSize(size);
+    for (const tab of ["report-page", "operation-page"]) {
+      await page.locator(`[data-turn-tab="${tab}"]`).click();
+      const overflow = await page.evaluate(() =>
+        [
+          "html",
+          "body",
+          ".game-board",
+          "#turn-panel",
+          "#turn-operations",
+          ".turn-page:not([hidden])",
+        ].filter((s) => {
+          const e = document.querySelector(s);
+          return (
+            e.scrollHeight > e.clientHeight + 2 ||
+            e.scrollWidth > e.clientWidth + 2
+          );
+        }),
+      );
+      assert.deepEqual(
+        overflow,
+        [],
+        `M5 replay ${size.width}x${size.height} ${tab}`,
+      );
+    }
+  }
+  await page.locator('#operation-dag [data-order-id="cross"]').click();
+  assert.ok(
+    (
+      await page.locator('#operation-dag [data-order-id="cross"]').textContent()
+    ).includes("失败"),
+  );
+  await page.screenshot({
+    path: join(root, "tactical-server/target/m5-replay.png"),
+  });
+  await clickAndStatus("#replay-exit", "已返回当前指挥");
+  assert.equal(await page.locator("#submit-orders").isDisabled(), false);
+  assert.deepEqual(await http(`/games/${labGame.id}/days/1`), labResult);
+  // Failed reads expose a safe reload entry without automatically repeating writes.
+  await page.route("**/api/v1/games/*/turn", (route) => route.abort(), {
+    times: 1,
+  });
+  await page.locator("#turn-reload").click();
+  await page.waitForFunction(() =>
+    document.getElementById("status").classList.contains("error"),
+  );
+  assert.equal(await page.locator("#retry-request").isVisible(), true);
+  await clickAndStatus("#retry-request", "已重新连接并载入服务端状态");
   assert.deepEqual(errors, []);
   assert.ok(!log.includes(token));
   console.log(
-    "PASS: browser blank map → HQ/engineer/armor/supply/edge/HP editing → freeze → two games → isolation → validation error → refresh → export/import hash equivalence; single-screen 1980×1080 / 1920×1080 / 1980×960, six-company paging, M1.2 management; M2 both-side orders, lock/resolve, HTTP replay equality, JSONL and manifest export; M3 combat/known-only retreat, six-company reports, rest/stock and bombardment; M4 relay editing, operation form/DAG, confirmed crossing, both projections, three viewport sizes and unchanged replay, no page errors",
+    "PASS: browser blank map → HQ/engineer/armor/supply/edge/HP editing → freeze → two games → isolation → validation error → refresh → export/import hash equivalence; single-screen 1980×1080 / 1920×1080 / 1980×960, six-company paging, M1.2 management; M2 both-side orders, lock/resolve, HTTP replay equality, JSONL and manifest export; M3 combat/known-only retreat, six-company reports, rest/stock and bombardment; M4 relay editing, operation form/DAG, confirmed crossing, both projections, three viewport sizes and unchanged replay; M5 authored intelligence/blueprint reopen, pictorial markers, historical playback/pause/filters, busy interactivity and safe reload, no page errors",
   );
 } finally {
   await browser?.close();

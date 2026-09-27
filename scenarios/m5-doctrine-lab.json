@@ -1,0 +1,769 @@
+{
+  "schemaVersion": 1,
+  "name": "河谷突破 · 学说实验室",
+  "width": 8,
+  "height": 4,
+  "cells": [
+    {
+      "position": {
+        "q": 0,
+        "r": 0
+      },
+      "terrain": "CITY",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 0,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 1,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 2,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 3,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 4,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 5,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 6,
+        "r": 3
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 0
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 1
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 2
+      },
+      "terrain": "PLAIN",
+      "fortification": 0
+    },
+    {
+      "position": {
+        "q": 7,
+        "r": 3
+      },
+      "terrain": "CITY",
+      "fortification": 0
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "q": 2,
+        "r": 1
+      },
+      "b": {
+        "q": 3,
+        "r": 0
+      },
+      "river": true,
+      "bridge": "DESTROYED",
+      "road": true
+    }
+  ],
+  "regiments": [
+    {
+      "id": "blue-hq",
+      "name": "蓝方师部",
+      "side": "BLUE",
+      "role": "DIVISION_HQ",
+      "position": {
+        "q": 0,
+        "r": 0
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "blue-hq-0",
+          "type": "SIGNAL",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "blue-brigade",
+      "name": "渡河旅部",
+      "side": "BLUE",
+      "role": "BRIGADE_HQ",
+      "position": {
+        "q": 1,
+        "r": 0
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "blue-brigade-0",
+          "type": "SIGNAL",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "blue-brigade-1",
+          "type": "SIGNAL",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "blue-engineers",
+      "name": "架桥工兵团",
+      "side": "BLUE",
+      "role": "REGIMENT",
+      "position": {
+        "q": 2,
+        "r": 0
+      },
+      "brigadeId": "blue-brigade",
+      "companies": [
+        {
+          "id": "blue-engineers-0",
+          "type": "ENGINEER",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "blue-armor",
+      "name": "装甲突击团",
+      "side": "BLUE",
+      "role": "REGIMENT",
+      "position": {
+        "q": 2,
+        "r": 1
+      },
+      "brigadeId": "blue-brigade",
+      "companies": [
+        {
+          "id": "blue-assault-0",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "blue-assault-1",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "blue-assault-2",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "blue-assault-3",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "blue-assault-4",
+          "type": "INFANTRY",
+          "equipment": "MECHANIZED",
+          "maxHp": 160,
+          "hp": 160
+        },
+        {
+          "id": "blue-assault-5",
+          "type": "INFANTRY",
+          "equipment": "MECHANIZED",
+          "maxHp": 160,
+          "hp": 160
+        }
+      ]
+    },
+    {
+      "id": "blue-guns",
+      "name": "火力准备团",
+      "side": "BLUE",
+      "role": "REGIMENT",
+      "position": {
+        "q": 1,
+        "r": 2
+      },
+      "brigadeId": "blue-brigade",
+      "companies": [
+        {
+          "id": "blue-guns-0",
+          "type": "ARTILLERY",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "red-hq",
+      "name": "红方师部",
+      "side": "RED",
+      "role": "DIVISION_HQ",
+      "position": {
+        "q": 7,
+        "r": 3
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "red-hq-0",
+          "type": "SIGNAL",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "red-guard",
+      "name": "后方守备团",
+      "side": "RED",
+      "role": "REGIMENT",
+      "position": {
+        "q": 6,
+        "r": 2
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "red-guard-0",
+          "type": "INFANTRY",
+          "equipment": "MOTORIZED",
+          "maxHp": 100,
+          "hp": 100
+        }
+      ]
+    },
+    {
+      "id": "red-line",
+      "name": "混编防御团",
+      "side": "RED",
+      "role": "REGIMENT",
+      "position": {
+        "q": 4,
+        "r": 0
+      },
+      "brigadeId": "",
+      "companies": [
+        {
+          "id": "red-line-0",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "red-line-1",
+          "type": "ARMOR",
+          "equipment": "TRACKED",
+          "maxHp": 100,
+          "hp": 100
+        },
+        {
+          "id": "red-line-2",
+          "type": "INFANTRY",
+          "equipment": "FOOT",
+          "maxHp": 160,
+          "hp": 160
+        },
+        {
+          "id": "red-line-3",
+          "type": "INFANTRY",
+          "equipment": "FOOT",
+          "maxHp": 160,
+          "hp": 160
+        },
+        {
+          "id": "red-line-4",
+          "type": "INFANTRY",
+          "equipment": "FOOT",
+          "maxHp": 160,
+          "hp": 160
+        },
+        {
+          "id": "red-line-5",
+          "type": "INFANTRY",
+          "equipment": "FOOT",
+          "maxHp": 160,
+          "hp": 160
+        }
+      ]
+    }
+  ],
+  "supplies": [
+    {
+      "id": "blue-rear",
+      "position": {
+        "q": 1,
+        "r": 1
+      },
+      "side": "BLUE",
+      "stock": 200
+    }
+  ],
+  "communicationNodes": [
+    {
+      "id": "blue-relay",
+      "position": {
+        "q": 4,
+        "r": 2
+      },
+      "side": "BLUE",
+      "hp": 30
+    }
+  ],
+  "communicationRadius": 5,
+  "setup": {
+    "blue": [
+      {
+        "orderId": "bridge",
+        "regimentId": "blue-engineers",
+        "action": "BUILD_BRIDGE",
+        "target": {
+          "q": 3,
+          "r": 0
+        },
+        "route": []
+      },
+      {
+        "orderId": "cross",
+        "regimentId": "blue-armor",
+        "action": "MOVE",
+        "target": null,
+        "route": [
+          {
+            "q": 3,
+            "r": 0
+          },
+          {
+            "q": 4,
+            "r": 0
+          }
+        ],
+        "doctrine": {
+          "schemaVersion": 1,
+          "template": "BREAKTHROUGH",
+          "withdrawBelowPercent": 35,
+          "supplyId": "blue-rear"
+        }
+      },
+      {
+        "orderId": "fire",
+        "regimentId": "blue-guns",
+        "action": "BOMBARD",
+        "target": {
+          "q": 4,
+          "r": 0
+        },
+        "route": []
+      }
+    ],
+    "red": [
+      {
+        "orderId": "hold-line",
+        "regimentId": "red-line",
+        "action": "DEFEND",
+        "route": [],
+        "doctrine": {
+          "schemaVersion": 1,
+          "template": "HOLD",
+          "withdrawBelowPercent": 35,
+          "supplyId": ""
+        }
+      }
+    ],
+    "blueOperation": {
+      "id": "river-operation",
+      "brigadeId": "blue-brigade",
+      "mode": "COORDINATED",
+      "theater": [
+        {
+          "q": 0,
+          "r": 0
+        },
+        {
+          "q": 0,
+          "r": 1
+        },
+        {
+          "q": 0,
+          "r": 2
+        },
+        {
+          "q": 0,
+          "r": 3
+        },
+        {
+          "q": 1,
+          "r": 0
+        },
+        {
+          "q": 1,
+          "r": 1
+        },
+        {
+          "q": 1,
+          "r": 2
+        },
+        {
+          "q": 1,
+          "r": 3
+        },
+        {
+          "q": 2,
+          "r": 0
+        },
+        {
+          "q": 2,
+          "r": 1
+        },
+        {
+          "q": 2,
+          "r": 2
+        },
+        {
+          "q": 2,
+          "r": 3
+        },
+        {
+          "q": 3,
+          "r": 0
+        },
+        {
+          "q": 3,
+          "r": 1
+        },
+        {
+          "q": 3,
+          "r": 2
+        },
+        {
+          "q": 3,
+          "r": 3
+        },
+        {
+          "q": 4,
+          "r": 0
+        },
+        {
+          "q": 4,
+          "r": 1
+        },
+        {
+          "q": 4,
+          "r": 2
+        },
+        {
+          "q": 4,
+          "r": 3
+        },
+        {
+          "q": 5,
+          "r": 0
+        },
+        {
+          "q": 5,
+          "r": 1
+        },
+        {
+          "q": 5,
+          "r": 2
+        },
+        {
+          "q": 5,
+          "r": 3
+        },
+        {
+          "q": 6,
+          "r": 0
+        },
+        {
+          "q": 6,
+          "r": 1
+        },
+        {
+          "q": 6,
+          "r": 2
+        },
+        {
+          "q": 6,
+          "r": 3
+        },
+        {
+          "q": 7,
+          "r": 0
+        },
+        {
+          "q": 7,
+          "r": 1
+        },
+        {
+          "q": 7,
+          "r": 2
+        },
+        {
+          "q": 7,
+          "r": 3
+        }
+      ],
+      "nodes": [
+        {
+          "orderId": "bridge",
+          "after": [],
+          "fallback": "HOLD"
+        },
+        {
+          "orderId": "cross",
+          "after": [
+            "bridge",
+            "fire"
+          ],
+          "fallback": "HOLD"
+        },
+        {
+          "orderId": "fire",
+          "after": [],
+          "fallback": "HOLD"
+        }
+      ]
+    },
+    "redOperation": null
+  },
+  "initialKnowledge": [
+    {
+      "observerId": "blue-hq",
+      "regimentIds": [
+        "red-line"
+      ],
+      "supplyIds": [
+        "blue-rear"
+      ],
+      "relayIds": []
+    }
+  ]
+}

@@ -46,6 +46,12 @@ final class ScenarioController {
     return service.get(id);
   }
 
+  @GetMapping("/scenarios/{id}/markers")
+  java.util.Map<String, io.tactical.application.UnitPresentation.Marker> markers(
+      @PathVariable String id) {
+    return io.tactical.application.UnitPresentation.markers(service.get(id).scenario());
+  }
+
   @PutMapping("/scenarios/{id}")
   Draft update(@PathVariable String id, @Valid @RequestBody UpdateScenario request) {
     return service.update(id, request.expectedVersion(), request.scenario());
@@ -154,6 +160,14 @@ final class ScenarioController {
             Scenario.class);
   }
 
+  @GetMapping("/presets/doctrine-lab")
+  Scenario doctrineLabPreset() throws IOException {
+    return new ObjectMapper()
+        .readValue(
+            new ClassPathResource("scenarios/m5-doctrine-lab.json").getContentAsByteArray(),
+            Scenario.class);
+  }
+
   @GetMapping("/presets/coordination")
   Scenario coordinationPreset() throws IOException {
     return new ObjectMapper()
@@ -198,6 +212,24 @@ final class ScenarioController {
   BattleSession.View turn(@PathVariable String id) {
     return service.turn(id);
   }
+
+  @GetMapping("/games/{id}/days/{day}/replay")
+  BattleSession.Replay replay(
+      @PathVariable String id,
+      @PathVariable @Min(1) int day,
+      @RequestParam(defaultValue = "0") @Min(0) int frame,
+      @RequestParam(defaultValue = "DIVISION") BattleSession.Perspective perspective,
+      @RequestParam(defaultValue = "BLUE") Scenario.Side side) {
+    return service.replay(id, day, frame, perspective, side);
+  }
+
+  @PostMapping("/games/{id}/blueprint")
+  @ResponseStatus(HttpStatus.CREATED)
+  Draft blueprint(@PathVariable String id, @Valid @RequestBody SaveBlueprint request) {
+    return service.blueprint(id, request.day(), request.blueVersion(), request.redVersion());
+  }
+
+  record SaveBlueprint(@Min(1) int day, @Min(0) long blueVersion, @Min(0) long redVersion) {}
 
   @GetMapping("/games/{id}/view")
   BattleSession.PlayerView projection(
