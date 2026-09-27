@@ -16,7 +16,7 @@ Spring Boot 4.0.8，JUnit 6.0.3。
 | 监听 | 检查实际 TCP 监听仅回环；对本机 1 个非回环 IPv4 地址连接被拒绝 |
 | 输入与错误 | 非法 JSON/版本/字段 400，未知路由 404，方法错误 405，类型/编码错误 415，定长与分块超大请求 413 |
 | 凭据 | 每次启动随机 256 bit；令牌文件 0600；轮换旧令牌失效；独立启动日志不含令牌 |
-| 接口材料 | `docs/api-examples.http`、`docs/contracts.md`、从代码生成且认证保护的 `/api/v1/openapi`；校验字段约束、响应类型与安全声明 |
+| 接口材料 | `scripts/smoke-test.py`、`docs/contracts.md`（M1.1 以自动回归替代手填 HTTP 样例）、从代码生成且认证保护的 `/api/v1/openapi`；校验字段约束、响应类型与安全声明 |
 | 版本固定 | 父 POM/BOM 统一固定依赖和插件版本；无 Wrapper，README 说明全局 Maven 兼容版本 |
 
 测试结果路径：
@@ -86,6 +86,24 @@ PLAYWRIGHT_MODULE=/path/to/playwright node scripts/browser-smoke.mjs
 限制：M1 数据在内存中，重启服务清空；可通过 JSON 导出长期保存。当前实验为 READY／第 0 天，
 无战斗/移动/回合执行。师部在草稿中可重新部署，在实验实例中没有移动或直接写入位置的接口。
 Linux 的令牌文件权限限制沿用 M0。通信网络、合法初始情报与 DAG 在后续节点补齐。
+
+## M1.1 — 单屏游戏工作台与 WSL 访问诊断
+
+日期：2026-09-27。规则版本保持 `m1-scenario-1`，接口元信息 milestone 为 `M1.1`。
+
+- 游戏布局：地图居中，右侧部署标签页，底部实验与指挥记录；连接/新建/档案采用弹窗。
+- 满编六连逐连编辑，实验三项一页、事件六项一页，内容不会无限拉高界面。
+- 1980×1080、1920×1080、1980×960 三种浏览器视口逐一检查地形/编制/补给标签，
+  页面与主面板无尺寸溢出，保存按钮未被裁切；地图可缩放、拖动和复位。
+- `docs/api-examples.http` 不参与执行且与自动 OpenAPI/回归脚本重复，已删除；README 保留可直接运行的 cURL 示例。
+- Windows 网络诊断：默认回环绑定解释了 WSL IP 连接失败；本机 wslrelay 的 IPv6 转发异常由
+  `-Djava.net.preferIPv4Stack=true` 绕过，临时 IPv4 回环实例从 Windows 返回 200；
+  显式绑定 WSL 网卡 IP 的实例通过该 IP 同样返回 200。诊断未修改运行中的 8080 服务、防火墙或 .wslconfig。
+- HTTP IP 来源下使用 `crypto.getRandomValues` 生成编辑器临时标识，不要求 HTTPS 专用的 randomUUID。
+
+验证：18 项 JUnit、Maven 离线干净构建、HTTP 回归及 Chromium 完整编辑流程；
+浏览器截图：`tactical-server/target/m1.1-game.png`。网络实测详见 `docs/wsl-networking.md`。
+M1 的进程内存储、导出保存和未开放回合结算的边界保持不变。
 
 ## M2–M6
 

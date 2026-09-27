@@ -11,12 +11,15 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const work = await mkdtemp(join(tmpdir(), "tactical-browser-"));
+const bindAddress = process.env.BROWSER_BIND_ADDRESS || "127.0.0.1";
 const server = spawn(
   "java",
   [
+    "-Djava.net.preferIPv4Stack=true",
     "-jar",
     join(root, "tactical-server/target/tactical-server-0.1.0-SNAPSHOT.jar"),
     "--server.port=0",
+    `--server.address=${bindAddress}`,
   ],
   { cwd: work },
 );
@@ -32,7 +35,7 @@ try {
   }
   const port = log.match(/Tomcat started on port (\d+)/)?.[1];
   assert.ok(port, "startup timeout");
-  const base = `http://127.0.0.1:${port}`,
+  const base = `http://${bindAddress}:${port}`,
     token = await readFile(join(work, ".runtime/session.token"), "utf8");
   const http = async (path, method = "GET", body) => {
     const r = await fetch(base + "/api/v1" + path, {
@@ -48,7 +51,7 @@ try {
   };
   browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
   const page = await browser.newPage({
-    viewport: { width: 1440, height: 1100 },
+    viewport: { width: 1980, height: 1080 },
   });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -68,11 +71,13 @@ try {
   const selectCell = async (q, r) =>
     page.locator(`[data-cell-key="${q},${r}"]`).click();
   const terrain = async (q, r, value) => {
+    await page.locator('[data-tab="terrain-panel"]').click();
     await selectCell(q, r);
     await page.locator("#terrain").selectOption(value);
     await clickAndStatus("#cell-form button", "保存成功");
   };
   const unit = async (q, r, name, role, type) => {
+    await page.locator('[data-tab="unit-panel"]').click();
     await selectCell(q, r);
     await page.locator("#regiment-name").fill(name);
     await page.locator("#role").selectOption(role);
@@ -85,6 +90,7 @@ try {
       "保存成功",
     );
   };
+  await page.locator("#new-scenario").click();
   await page.locator("#create-name").fill("浏览器验收场景");
   await clickAndStatus("#create-form button", "已从服务端载入");
   assert.equal(await page.locator("[data-cell-key]").count(), 35);
@@ -92,6 +98,7 @@ try {
   await unit(0, 2, "蓝方师部", "DIVISION_HQ", "SIGNAL");
   await terrain(6, 2, "CITY");
   await selectCell(6, 2);
+  await page.locator('[data-tab="unit-panel"]').click();
   await page.locator("#side").selectOption("RED");
   // unit() reselects the cell and reloads the inspector, so configure this HQ in-place.
   await page.locator("#regiment-name").fill("红方师部");
@@ -111,13 +118,14 @@ try {
     "#regiment-form .toolbar button:not([type])",
     "保存成功",
   );
+  await page.locator('[data-tab="terrain-panel"]').click();
   await page.locator("#neighbor").selectOption("3,2");
   await page.locator("#river").check();
   await page.locator("#road").check();
   await page.locator("#bridge").selectOption("INTACT");
   await clickAndStatus("#edge-form button", "保存成功");
   await selectCell(1, 3);
-  await page.locator("summary").filter({ hasText: "补给设施" }).click();
+  await page.locator('[data-tab="supply-panel"]').click();
   await page.locator("#stock").fill("300");
   await clickAndStatus("#supply-form button:not([type])", "保存成功");
   const id = await page.evaluate(() =>
@@ -189,20 +197,83 @@ try {
     (await http(`/scenarios/${importedId}/revisions`))[0].contentHash,
     original.contentHash,
   );
-  await page.setViewportSize({ width: 390, height: 844 });
+  // Six-company dossiers and repeated runs must fit without hidden/clipped controls.
+  await page.locator('[data-tab="unit-panel"]').click();
+  await selectCell(2, 2);
+  for (let i = 1; i < 6; i++) await page.locator("#add-company").click();
+  assert.equal(await page.locator(".company:not([hidden])").count(), 1);
+  await clickAndStatus(
+    "#regiment-form .toolbar button:not([type])",
+    "保存成功",
+  );
+  for (let i = 0; i < 6; i++) {
+    await page.locator("#company-tabs button").nth(i).click();
+    assert.equal(await page.locator(".company:not([hidden])").count(), 1);
+  }
+  await clickAndStatus("#freeze", "冻结成功");
+  for (let i = 0; i < 5; i++)
+    await clickAndStatus("#create-game", "独立实验已创建");
+  assert.equal(await page.locator(".game").count(), 3);
+  await page.locator("#games-next").click();
+  assert.equal(await page.locator(".game").count(), 2);
+  await page.locator("#games-prev").click();
+  const beforeZoom = await page.locator("#map").getAttribute("viewBox");
+  await page.locator("#zoom-in").click();
+  assert.notEqual(
+    await page.locator("#map").getAttribute("viewBox"),
+    beforeZoom,
+  );
+  await page.locator("#zoom-reset").click();
+  assert.equal(await page.locator("#map").getAttribute("viewBox"), beforeZoom);
+  for (const size of [
+    { width: 1980, height: 1080 },
+    { width: 1920, height: 1080 },
+    { width: 1980, height: 960 },
+  ]) {
+    await page.setViewportSize(size);
+    for (const tab of ["terrain-panel", "unit-panel", "supply-panel"]) {
+      await page.locator(`[data-tab="${tab}"]`).click();
+      const overflow = await page.evaluate(() => {
+        const roots = [
+          "html",
+          "body",
+          ".game-board",
+          ".inspector",
+          ".inspector-page:not([hidden])",
+          ".operations",
+          ".journal",
+          ".map-scroll",
+        ];
+        return roots.filter((selector) => {
+          const e = document.querySelector(selector);
+          return (
+            e.scrollHeight > e.clientHeight + 2 ||
+            e.scrollWidth > e.clientWidth + 2
+          );
+        });
+      });
+      assert.deepEqual(
+        overflow,
+        [],
+        `layout overflow at ${size.width}x${size.height} ${tab}`,
+      );
+      const bottom = await page.locator(`#${tab} form`).last().boundingBox();
+      assert.ok(
+        bottom.y + bottom.height <= size.height - 30,
+        "inspector form clipped",
+      );
+    }
+  }
+  await page.setViewportSize({ width: 1980, height: 1080 });
+  await page.locator('[data-tab="unit-panel"]').click();
   await page.screenshot({
-    path: join(root, "tactical-server/target/m1-mobile.png"),
-    fullPage: true,
-  });
-  await page.setViewportSize({ width: 1440, height: 1100 });
-  await page.screenshot({
-    path: join(root, "tactical-server/target/m1-editor.png"),
+    path: join(root, "tactical-server/target/m1.1-game.png"),
     fullPage: true,
   });
   assert.deepEqual(errors, []);
   assert.ok(!log.includes(token));
   console.log(
-    "PASS: browser blank map → HQ/engineer/armor/supply/edge/HP editing → freeze → two games → isolation → validation error → refresh → export/import hash equivalence; no page errors",
+    "PASS: browser blank map → HQ/engineer/armor/supply/edge/HP editing → freeze → two games → isolation → validation error → refresh → export/import hash equivalence; single-screen 1980×1080 / 1920×1080 / 1980×960, six-company paging and no page errors",
   );
 } finally {
   await browser?.close();

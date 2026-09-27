@@ -3,93 +3,58 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>战术编排 · 场景实验场</title>
+    <title>战术编排 · 军事学说实验场</title>
     <link rel="stylesheet" href="/style.css" />
     <script type="module" src="/app.js"></script>
   </head>
   <body>
-    <header>
-      <div>
-        <span class="eyebrow">TACTICAL ORCHESTRATION / M1</span>
-        <h1>战术编排 <span>场景实验场</span></h1>
-        <p>胜兵先胜，而后求战</p>
+    <header class="command-bar">
+      <div class="brand">
+        <span class="brand-mark">策</span>
+        <div>
+          <h1>战术编排</h1>
+          <span class="eyebrow">TACTICAL ORCHESTRATION · M1.1</span>
+        </div>
       </div>
-      <span id="connection" class="badge">未连接</span>
+      <div class="operation-title">
+        <span>军事学说实验场 / 初始部署</span
+        ><strong id="draft-meta">尚未部署战场</strong>
+      </div>
+      <button id="fullscreen" class="secondary">全屏</button
+      ><button id="connect-menu" class="secondary">
+        <span id="connection">未连接</span>
+      </button>
     </header>
-    <section class="auth panel">
-      <form id="auth-form">
-        <label
-          >本地会话令牌
-          <input
-            id="token"
-            type="password"
-            required
-            autocomplete="off"
-            placeholder="粘贴 .runtime/session.token 内容" /></label
-        ><button>连接服务</button
-        ><button type="button" id="disconnect" class="secondary">断开</button>
-      </form>
-      <small
-        >令牌只保存在本页内存，刷新后需重新输入。场景在服务运行期间保留，长期保存请导出
-        JSON。</small
-      >
-    </section>
-    <div id="status" role="status" aria-live="polite">
-      连接后可创建空白地图，或载入“河谷突破”预置场景。
-    </div>
-    <main>
-      <section class="workspace panel">
-        <div class="section-heading">
-          <h2>01 / 场景</h2>
-          <span id="draft-meta">未选择草稿</span>
-        </div>
-        <div class="toolbar">
-          <label
-            >已有草稿
-            <select id="draft-list">
-              <option value="">请选择</option>
-            </select></label
-          ><button id="reload" class="secondary" data-auth>重新载入</button
-          ><button id="preset" data-auth>载入河谷突破</button
-          ><label class="file-button"
-            >导入 JSON<input
-              id="import-file"
-              type="file"
-              accept=".json,application/json"
-              data-auth /></label
-          ><button id="export" class="secondary" data-draft>导出草稿</button>
-        </div>
-        <form id="create-form" class="toolbar">
-          <label
-            >场景名
-            <input
-              id="create-name"
-              value="新的战术实验"
-              maxlength="80"
-              required /></label
-          ><label
-            >宽
-            <input
-              id="width"
-              type="number"
-              min="2"
-              max="16"
-              value="7"
-              required /></label
-          ><label
-            >高
-            <input
-              id="height"
-              type="number"
-              min="2"
-              max="16"
-              value="5"
-              required /></label
-          ><button data-auth>创建空白地图</button>
-        </form>
-        <div class="map-heading">
-          <h2>02 / 初始战场</h2>
-          <span>选择六角格编辑 · 轴向坐标 q, r</span>
+    <nav class="scenario-bar" aria-label="场景操作">
+      <label class="draft-picker"
+        >战场
+        <select id="draft-list">
+          <option value="">请选择草稿</option>
+        </select></label
+      ><button id="new-scenario" class="secondary" data-auth>新建战场</button
+      ><button id="preset" data-auth>河谷突破</button
+      ><button id="reload" class="secondary" data-auth>重新载入</button
+      ><button id="export" class="secondary" data-draft>导出</button
+      ><label class="file-button"
+        >导入<input
+          id="import-file"
+          type="file"
+          accept=".json,application/json"
+          data-auth /></label
+      ><span id="force-summary" class="force-summary">等待部署</span>
+    </nav>
+    <main class="game-board">
+      <section class="battlefield" aria-label="初始战场">
+        <div class="map-header">
+          <span class="map-caption">作战地图 <small>DEPLOYMENT</small></span>
+          <div class="map-actions">
+            <button id="zoom-out" class="secondary" aria-label="缩小地图">
+              −</button
+            ><button id="zoom-reset" class="secondary">适应战场</button
+            ><button id="zoom-in" class="secondary" aria-label="放大地图">
+              ＋
+            </button>
+          </div>
         </div>
         <div class="map-scroll">
           <svg
@@ -98,47 +63,61 @@
             aria-label="六角战场地图"
             viewBox="0 0 640 360"
           >
-            <text x="24" y="45">连接并载入场景后显示地图</text>
+            <text x="320" y="170" text-anchor="middle">
+              选择「河谷突破」或创建新的战场
+            </text>
+            <text x="320" y="195" text-anchor="middle">准备 · 编制 · 协同</text>
           </svg>
+          <div class="map-watermark">胜兵先胜<br /><span>而后求战</span></div>
         </div>
-        <div class="legend">
-          <span>🟩 平原</span><span>🌲 森林</span><span>▲ 高地／山地</span
-          ><span>▣ 城市</span><span>蓝线 河流</span><span>浅线 道路</span
-          ><span>═ 桥梁</span><span>＋ 补给</span>
+        <div class="map-footer">
+          <span>点击选格 · 滚轮缩放 · 按住拖动平移</span>
+          <div class="legend">
+            <i class="plain"></i>平原 <i class="forest"></i>森林
+            <i class="hill"></i>高地 <i class="river"></i>河流
+            <i class="road"></i>道路
+          </div>
         </div>
-        <p class="hint">
-          这是初始部署编辑器。师部只能部署在城市；冻结后的实验状态不可在此修改。M1
-          尚不执行移动或战斗。
-        </p>
       </section>
-      <aside class="panel inspector">
+      <aside class="inspector panel">
         <div class="section-heading">
-          <h2>03 / 格子属性</h2>
-          <span id="selection">未选择</span>
+          <h2>部署指令</h2>
+          <span id="selection">未选择格子</span>
         </div>
-        <form id="cell-form">
-          <label
-            >地形
-            <select id="terrain">
-              <option value="PLAIN">平原</option>
-              <option value="FOREST">森林</option>
-              <option value="HILL">高地</option>
-              <option value="MOUNTAIN">山地</option>
-              <option value="CITY">城市</option>
-            </select></label
-          ><label
-            >基础工事等级
-            <input
-              id="fortification"
-              type="number"
-              min="0"
-              max="3"
-              value="0"
-              required /></label
-          ><button data-cell>保存地形</button>
-        </form>
-        <details open>
-          <summary>河流、桥梁与道路</summary>
+        <div id="selection-summary">选择地图中的六角格。</div>
+        <nav class="inspector-tabs" role="tablist" aria-label="部署面板">
+          <button data-tab="terrain-panel" role="tab" aria-selected="true">
+            地形 / 工程</button
+          ><button data-tab="unit-panel" role="tab" aria-selected="false">
+            团连编制</button
+          ><button data-tab="supply-panel" role="tab" aria-selected="false">
+            补给设施
+          </button>
+        </nav>
+        <section id="terrain-panel" class="inspector-page" role="tabpanel">
+          <h3>地形与工事</h3>
+          <form id="cell-form">
+            <label
+              >地形
+              <select id="terrain">
+                <option value="PLAIN">平原</option>
+                <option value="FOREST">森林</option>
+                <option value="HILL">高地</option>
+                <option value="MOUNTAIN">山地</option>
+                <option value="CITY">城市</option>
+              </select></label
+            ><label
+              >基础工事等级
+              <input
+                id="fortification"
+                type="number"
+                min="0"
+                max="3"
+                value="0"
+                required /></label
+            ><button data-cell>保存地形</button>
+          </form>
+          <h3>相邻格边</h3>
           <form id="edge-form">
             <label
               >相邻格
@@ -157,57 +136,10 @@
               </select></label
             ><button data-cell>保存格边</button>
           </form>
-        </details>
-        <details>
-          <summary>补给设施</summary>
-          <form id="supply-form">
-            <label
-              >补给点 ID
-              <input
-                id="supply-id"
-                required
-                pattern="[A-Za-z0-9_-]{1,64}"
-                maxlength="64" /></label
-            ><label
-              >阵营
-              <select id="supply-side">
-                <option value="BLUE">蓝方</option>
-                <option value="RED">红方</option>
-              </select></label
-            ><label
-              >库存
-              <input
-                id="stock"
-                type="number"
-                min="0"
-                max="1000000"
-                value="500"
-                required
-            /></label>
-            <div class="toolbar">
-              <button data-cell>保存补给点</button
-              ><button
-                id="remove-supply"
-                type="button"
-                class="secondary"
-                data-cell
-              >
-                移除
-              </button>
-            </div>
-          </form>
-        </details>
-        <details open>
-          <summary>团与连队编制</summary>
-          <form id="regiment-form">
-            <label
-              >团 ID
-              <input
-                id="regiment-id"
-                required
-                pattern="[A-Za-z0-9_-]{1,64}"
-                maxlength="64" /></label
-            ><label
+        </section>
+        <section id="unit-panel" class="inspector-page" role="tabpanel" hidden>
+          <form id="regiment-form" novalidate>
+            <input id="regiment-id" type="hidden" /><label
               >团名称 <input id="regiment-name" required maxlength="80"
             /></label>
             <div class="two-cols">
@@ -236,6 +168,15 @@
               师部至少 1 个存活通信连，旅部至少 2 个；普通团可混编或仅有 1
               连。HP 为 0 的连保留记录。
             </p>
+            <div class="company-heading">
+              <span>连队编制</span><span id="company-count">0 / 6</span>
+            </div>
+            <div
+              id="company-tabs"
+              class="company-tabs"
+              role="tablist"
+              aria-label="连队选择"
+            ></div>
             <div id="companies"></div>
             <button id="add-company" type="button" class="secondary" data-cell>
               ＋ 添加连队
@@ -252,48 +193,184 @@
               </button>
             </div>
           </form>
-        </details>
+        </section>
+        <section
+          id="supply-panel"
+          class="inspector-page"
+          role="tabpanel"
+          hidden
+        >
+          <h3>补给节点</h3>
+          <form id="supply-form">
+            <input id="supply-id" type="hidden" /><label
+              >阵营
+              <select id="supply-side">
+                <option value="BLUE">蓝方</option>
+                <option value="RED">红方</option>
+              </select></label
+            ><label
+              >库存
+              <input
+                id="stock"
+                type="number"
+                min="0"
+                max="1000000"
+                value="500"
+                required
+            /></label>
+            <div class="toolbar">
+              <button data-cell>保存补给点</button
+              ><button
+                id="remove-supply"
+                type="button"
+                class="secondary"
+                data-cell
+              >
+                移除
+              </button>
+            </div>
+          </form>
+          <p class="hint">
+            设施库存是初始场景的一部分，补给点可以与己方团同格。
+          </p>
+        </section>
       </aside>
-      <section class="panel experiments">
+      <section class="operations panel">
         <div class="section-heading">
-          <h2>04 / 冻结与实验</h2>
-          <span>双方城市师部齐备后可冻结</span>
+          <h2>实验控制</h2>
+          <span>冻结部署 → 独立实验</span>
         </div>
-        <div class="toolbar">
-          <button id="freeze" data-draft>冻结当前草稿</button
+        <div class="experiment-toolbar">
+          <button id="freeze" data-draft>冻结部署</button
           ><label
-            >冻结版本
-            <select id="revision-list">
+            >版本<select id="revision-list">
               <option value="">尚未冻结</option>
             </select></label
           ><button id="export-revision" class="secondary" data-revision>
-            导出冻结输入</button
-          ><label
-            >种子 <input id="seed" type="number" value="42" step="1" /></label
+            导出版本</button
+          ><label class="seed-label"
+            >种子<input id="seed" type="number" value="42" step="1" /></label
           ><button id="create-game" data-revision>启动独立实验</button>
         </div>
-        <p id="revision-info" class="hash">
-          冻结后显示内容哈希。可以从同一版本多次启动实验。
-        </p>
-        <div id="games" class="games"></div>
-        <details>
-          <summary>查看实验的冻结初始状态</summary>
-          <pre id="game-detail">选择一个实验查看其初始输入。</pre>
-        </details>
+        <p id="revision-info" class="hash">双方城市师部齐备后可冻结部署。</p>
+        <div class="experiment-results">
+          <div id="games" class="games"></div>
+          <div class="paging">
+            <button id="games-prev" class="secondary" aria-label="上一页实验">
+              ‹</button
+            ><span id="games-page">0 / 0</span
+            ><button id="games-next" class="secondary" aria-label="下一页实验">
+              ›
+            </button>
+          </div>
+        </div>
       </section>
-      <section class="panel journal">
+      <section class="journal panel">
         <div class="section-heading">
-          <h2>05 / 操作事件</h2>
-          <span>服务端记录</span>
+          <h2>指挥记录</h2>
+          <div class="paging">
+            <button id="events-prev" class="secondary" aria-label="上一页记录">
+              ‹</button
+            ><span id="events-page">0 / 0</span
+            ><button id="events-next" class="secondary" aria-label="下一页记录">
+              ›
+            </button>
+          </div>
         </div>
         <ol id="events">
-          <li>暂无事件</li>
+          <li>暂无记录</li>
         </ol>
       </section>
     </main>
     <footer>
-      原生 Web · 服务端权威校验 · 冻结输入可复用
-      <a href="/api/v1/openapi" id="openapi">读取 OpenAPI（需连接）</a>
+      <span id="status" role="status" aria-live="polite"
+        >连接指挥终端，开始部署。</span
+      ><span class="build-status">部署阶段 · 回合结算未开放</span>
     </footer>
+    <dialog id="auth-dialog" aria-labelledby="auth-title">
+      <div class="section-heading">
+        <h2 id="auth-title">连接本地指挥终端</h2>
+        <button
+          class="secondary"
+          data-close="auth-dialog"
+          aria-label="关闭连接窗口"
+        >
+          ×
+        </button>
+      </div>
+      <form id="auth-form">
+        <label
+          >本地会话令牌
+          <input
+            id="token"
+            type="password"
+            required
+            autocomplete="off"
+            placeholder="粘贴 .runtime/session.token 内容" /></label
+        ><button>连接服务</button
+        ><button type="button" id="disconnect" class="secondary">断开</button>
+      </form>
+      <p class="hint">
+        从服务工作目录的 .runtime/session.token
+        粘贴会话令牌；令牌只保存在当前页面内存。重启服务会清空场景，重要部署请导出。
+      </p>
+      <p id="auth-status" role="status"></p>
+      <button id="openapi" class="secondary">导出接口文档</button>
+    </dialog>
+    <dialog id="scenario-dialog" aria-labelledby="scenario-title">
+      <div class="section-heading">
+        <h2 id="scenario-title">创建战场</h2>
+        <button
+          class="secondary"
+          data-close="scenario-dialog"
+          aria-label="关闭新建窗口"
+        >
+          ×
+        </button>
+      </div>
+      <form id="create-form" class="toolbar">
+        <label
+          >场景名
+          <input
+            id="create-name"
+            value="新的战术实验"
+            maxlength="80"
+            required /></label
+        ><label
+          >宽
+          <input
+            id="width"
+            type="number"
+            min="2"
+            max="16"
+            value="7"
+            required /></label
+        ><label
+          >高
+          <input
+            id="height"
+            type="number"
+            min="2"
+            max="16"
+            value="5"
+            required /></label
+        ><button data-auth>创建空白地图</button>
+      </form>
+      <p class="dialog-status" role="status"></p>
+      <p class="hint">宽高 2–16 格。创建后在右侧面板配置地形和兵力。</p>
+    </dialog>
+    <dialog id="game-dialog" aria-labelledby="game-title">
+      <div class="section-heading">
+        <h2 id="game-title">实验部署档案</h2>
+        <button
+          class="secondary"
+          data-close="game-dialog"
+          aria-label="关闭实验档案"
+        >
+          ×
+        </button>
+      </div>
+      <pre id="game-detail">选择实验以查看冻结输入。</pre>
+    </dialog>
   </body>
 </html>

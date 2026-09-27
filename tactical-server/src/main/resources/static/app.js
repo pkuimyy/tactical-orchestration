@@ -47,10 +47,117 @@ const center = (p) => ({
   x: 42 + Math.sqrt(3) * 30 * (p.q + p.r / 2),
   y: 42 + 45 * p.r,
 });
-const uid = (prefix) => `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+// getRandomValues also works on explicitly configured HTTP IP origins (non-secure contexts).
+const uid = (prefix) =>
+  `${prefix}-${Array.from(crypto.getRandomValues(new Uint32Array(2)), (n) => n.toString(16).padStart(8, "0")).join("")}`;
+let activeCompany = 0,
+  gameRows = [],
+  eventRows = [],
+  gamePage = 0,
+  eventPage = 0;
+let camera = null,
+  mapBounds = null,
+  drag = null,
+  dragged = false;
+const gamePageSize = () => (innerWidth > 1500 ? 3 : innerWidth > 1100 ? 2 : 1);
+function selectPanel(id) {
+  document
+    .querySelectorAll(".inspector-page")
+    .forEach((p) => (p.hidden = p.id !== id));
+  document
+    .querySelectorAll("[data-tab]")
+    .forEach((b) =>
+      b.setAttribute("aria-selected", String(b.dataset.tab === id)),
+    );
+}
+function showCompany(index) {
+  const items = [...$("companies").children];
+  activeCompany = Math.max(0, Math.min(index, items.length - 1));
+  items.forEach((item, i) => (item.hidden = i !== activeCompany));
+  $("company-tabs").replaceChildren(
+    ...items.map((item, i) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.setAttribute("role", "tab");
+      button.setAttribute("aria-selected", String(i === activeCompany));
+      button.textContent = `${i + 1} ${symbols[item.querySelector('[data-field="type"]').value]}`;
+      button.addEventListener("click", () => showCompany(i));
+      return button;
+    }),
+  );
+  $("company-count").textContent = `${items.length} / 6`;
+  $("add-company").disabled = busy || !selected || !token || items.length >= 6;
+}
+function paging() {
+  const gp = Math.ceil(gameRows.length / gamePageSize()),
+    ep = Math.ceil(eventRows.length / 6);
+  $("games-page").textContent = gp ? `${gamePage + 1} / ${gp}` : "0 / 0";
+  $("events-page").textContent = ep ? `${eventPage + 1} / ${ep}` : "0 / 0";
+  for (const [id, disabled] of [
+    ["games-prev", gamePage === 0],
+    ["games-next", gamePage + 1 >= gp],
+    ["events-prev", eventPage === 0],
+    ["events-next", eventPage + 1 >= ep],
+  ])
+    $(id).disabled = busy || disabled;
+}
+function renderEvents() {
+  const labels = {
+    DRAFT_CREATED: "建立战场",
+    DRAFT_UPDATED: "调整部署",
+    SCENARIO_FROZEN: "冻结部署",
+    GAME_CREATED: "创建独立实验",
+  };
+  $("events").replaceChildren(
+    ...eventRows.slice(eventPage * 6, eventPage * 6 + 6).map((e) => {
+      const li = document.createElement("li");
+      li.textContent = `${String(e.sequence).padStart(3, "0")}  ${labels[e.kind] || e.kind} · ${e.entityId.slice(0, 8)}`;
+      li.title = `${e.kind} / ${e.entityId} / ${e.contentHash}`;
+      return li;
+    }),
+  );
+  paging();
+}
+function applyCamera() {
+  if (camera)
+    $("map").setAttribute(
+      "viewBox",
+      `${camera.x} ${camera.y} ${camera.w} ${camera.h}`,
+    );
+}
+function zoom(factor, point) {
+  if (!camera) return;
+  const width = Math.max(
+      mapBounds.w * 0.25,
+      Math.min(mapBounds.w * 1.5, camera.w * factor),
+    ),
+    ratio = width / camera.w;
+  const anchor = point || {
+    x: camera.x + camera.w / 2,
+    y: camera.y + camera.h / 2,
+  };
+  camera = {
+    x: anchor.x + (camera.x - anchor.x) * ratio,
+    y: anchor.y + (camera.y - anchor.y) * ratio,
+    w: width,
+    h: camera.h * ratio,
+  };
+  applyCamera();
+}
+function mapPoint(event) {
+  return new DOMPoint(event.clientX, event.clientY).matrixTransform(
+    $("map").getScreenCTM().inverse(),
+  );
+}
+
 function message(text, error = false) {
   $("status").textContent = text;
   $("status").classList.toggle("error", error);
+  $("status").title = text;
+  document.querySelectorAll(".dialog-status,#auth-status").forEach((e) => {
+    e.textContent = text;
+    e.classList.toggle("error", error);
+  });
 }
 function controls() {
   document.querySelectorAll("button").forEach((e) => (e.disabled = busy));
@@ -68,7 +175,10 @@ function controls() {
     .forEach((e) => (e.disabled = busy || !revision || !token));
   $("draft-list").disabled = busy || !token;
   $("revision-list").disabled = busy || !draft;
-  $("connection").textContent = token ? "已连接 · 本地服务" : "未连接";
+  $("connection").textContent = token ? "已连接" : "未连接";
+  $("add-company").disabled =
+    busy || !selected || !token || $("companies").children.length >= 6;
+  paging();
 }
 async function run(action) {
   if (busy) return;
@@ -130,6 +240,7 @@ async function listDrafts() {
   );
 }
 async function loadDraft(id) {
+  if (draft?.id !== id) camera = null;
   draft = await api(`/scenarios/${id}`);
   localStorage.setItem("tactical-draft-id", id);
   if (
@@ -160,17 +271,9 @@ async function loadHistory(preferred) {
     revision?.id || "",
   );
   await renderGames();
-  const events = await api(`/scenarios/${draft.id}/events`);
-  $("events").replaceChildren(
-    ...events
-      .slice()
-      .reverse()
-      .map((e) => {
-        const li = document.createElement("li");
-        li.textContent = `#${e.sequence} ${e.kind} · ${e.entityId} · ${e.contentHash.slice(0, 16)}`;
-        return li;
-      }),
-  );
+  eventRows = (await api(`/scenarios/${draft.id}/events`)).reverse();
+  eventPage = 0;
+  renderEvents();
 }
 async function save(edit) {
   const scenario = structuredClone(draft.scenario);
@@ -196,10 +299,18 @@ function renderMap() {
   const s = draft.scenario,
     map = $("map");
   map.replaceChildren();
-  map.setAttribute(
-    "viewBox",
-    `0 0 ${85 + Math.sqrt(3) * 30 * (s.width - 1 + (s.height - 1) / 2)} ${84 + 45 * (s.height - 1)}`,
-  );
+  mapBounds = {
+    x: 0,
+    y: 0,
+    w: 85 + Math.sqrt(3) * 30 * (s.width - 1 + (s.height - 1) / 2),
+    h: 84 + 45 * (s.height - 1),
+  };
+  if (!camera) camera = { ...mapBounds };
+  applyCamera();
+  const blue = s.regiments.filter((r) => r.side === "BLUE").length,
+    red = s.regiments.length - blue;
+  $("force-summary").textContent =
+    `蓝方 ${blue} 团 / 红方 ${red} 团 · 补给 ${s.supplies.length} 处`;
   $("draft-meta").textContent =
     `${s.name} · v${draft.version} · ${s.width}×${s.height}`;
   for (const cell of s.cells) {
@@ -218,7 +329,7 @@ function renderMap() {
       "data-cell-key": key(cell.position),
     });
     const choose = () => {
-      if (busy) return;
+      if (busy || dragged) return;
       selected = cell.position;
       renderMap();
       renderInspector();
@@ -288,6 +399,30 @@ function renderMap() {
         key(cell.position),
       ),
     );
+    if (cell.terrain === "FOREST") {
+      for (const [dx, dy] of [
+        [-12, -7],
+        [0, -10],
+        [11, -4],
+      ])
+        overlays.append(
+          svg("path", {
+            d: `M ${c.x + dx - 5} ${c.y + dy + 5} l 5 -12 l 5 12 Z`,
+            fill: "#183c2a",
+            stroke: "#62835b",
+            "stroke-width": 0.5,
+          }),
+        );
+    }
+    if (cell.terrain === "HILL" || cell.terrain === "MOUNTAIN")
+      overlays.append(
+        svg("path", {
+          d: `M ${c.x - 17} ${c.y + 3} l 12 -16 l 9 12 l 6 -8 l 10 12`,
+          fill: "#404f42",
+          stroke: "#9b9b71",
+          "stroke-width": 1,
+        }),
+      );
     if (cell.terrain === "CITY")
       overlays.append(svg("text", { x: c.x - 21, y: c.y - 12 }, "▣"));
     if (cell.fortification)
@@ -339,7 +474,20 @@ function renderInspector() {
   if (!draft || !selected) return;
   const s = draft.scenario,
     cell = s.cells.find((c) => same(c.position, selected));
-  $("selection").textContent = `q ${selected.q} / r ${selected.r}`;
+  $("selection").textContent =
+    `${String(selected.q).padStart(2, "0")} / ${String(selected.r).padStart(2, "0")}`;
+  const unit = s.regiments.find((r) => same(r.position, selected));
+  const terrainNames = {
+    PLAIN: "平原",
+    FOREST: "森林",
+    HILL: "高地",
+    MOUNTAIN: "山地",
+    CITY: "城市",
+  };
+  $("selection-summary").textContent = unit
+    ? `${unit.side === "BLUE" ? "蓝方" : "红方"} · ${unit.name} · ${unit.companies.length} 连`
+    : `${terrainNames[cell.terrain]} · 空置地块`;
+
   $("terrain").value = cell.terrain;
   $("fortification").value = cell.fortification;
   const neighbors = [
@@ -378,6 +526,7 @@ function renderInspector() {
     },
   ])
     addCompany(c);
+  showCompany(0);
 }
 function renderBrigades(current = "") {
   optionList(
@@ -418,7 +567,10 @@ function addCompany(
   remove.type = "button";
   remove.className = "secondary";
   remove.textContent = "移除此连";
-  remove.addEventListener("click", () => div.remove());
+  remove.addEventListener("click", () => {
+    div.remove();
+    showCompany(activeCompany);
+  });
   div.append(remove);
   const field = (label, name, node) => {
     const l = document.createElement("label");
@@ -428,13 +580,14 @@ function addCompany(
     div.append(l);
     return node;
   };
-  const id = field("连 ID", "id", document.createElement("input"));
+  const id = document.createElement("input");
+  id.type = "hidden";
+  id.dataset.field = "id";
   id.value = c.id;
-  id.required = true;
-  id.pattern = "[A-Za-z0-9_-]{1,64}";
-  id.maxLength = 64;
+  div.append(id);
   const type = field("类型", "type", document.createElement("select"));
   optionList(type, Object.entries(names), c.type);
+  type.addEventListener("change", () => showCompany(activeCompany));
   const eq = field("装备形态", "equipment", document.createElement("select"));
   optionList(eq, Object.entries(equipment), c.equipment);
   for (const [name, label] of [
@@ -449,41 +602,57 @@ function addCompany(
     input.value = c[name];
   }
   $("companies").append(div);
+  showCompany($("companies").children.length - 1);
 }
 async function renderGames() {
-  $("games").replaceChildren();
-  $("game-detail").textContent = "选择一个实验查看其冻结初始输入。";
+  $("game-detail").textContent = "选择实验查看其冻结初始输入。";
   if (!revision) {
-    $("revision-info").textContent =
-      "尚未冻结。为双方部署城市师部后，冻结并创建实验。";
+    $("revision-info").textContent = "双方城市师部齐备后可冻结部署。";
+    gameRows = [];
+    renderGamePage();
     return;
   }
   $("revision-info").textContent =
-    `版本 ${revision.id} · 来源草稿 v${revision.draftVersion}\nSHA-256 ${revision.contentHash}${revision.draftVersion !== draft.version ? " · 当前草稿有后续编辑，实验仍使用此冻结版本。" : ""}`;
-  const games = await api(`/revisions/${revision.id}/games`);
-  for (const game of games) {
+    `部署 v${revision.draftVersion} · 指纹 ${revision.contentHash.slice(0, 16)}${revision.draftVersion !== draft.version ? " · 当前草稿已有后续调整" : ""}`;
+  $("revision-info").title = `${revision.id} / SHA-256 ${revision.contentHash}`;
+  gameRows = await api(`/revisions/${revision.id}/games`);
+  gamePage = 0;
+  renderGamePage();
+}
+function renderGamePage() {
+  const size = gamePageSize();
+  gamePage = Math.min(
+    gamePage,
+    Math.max(0, Math.ceil(gameRows.length / size) - 1),
+  );
+  $("games").replaceChildren();
+  for (const [i, game] of gameRows
+    .slice(gamePage * size, gamePage * size + size)
+    .entries()) {
     const box = document.createElement("div");
     box.className = "game";
     const title = document.createElement("strong");
-    title.textContent = `独立实验 ${games.indexOf(game) + 1} · ${game.status}`;
+    title.textContent = `实验 ${String(gamePage * size + i + 1).padStart(2, "0")} · 待命`;
     const id = document.createElement("p");
-    id.textContent = game.id;
+    id.textContent = `部署 v${revision.draftVersion}`;
+    id.title = game.id;
     const seed = document.createElement("code");
-    seed.textContent = `种子 ${game.seed} · 第 ${game.day} 天`;
+    seed.textContent = `种子 ${game.seed} / 第 ${game.day} 天`;
     const button = document.createElement("button");
     button.className = "secondary";
-    button.textContent = "查看初始状态";
+    button.textContent = "档案";
     button.addEventListener("click", () =>
       run(async () => {
         const state = await api(`/games/${game.id}`);
         $("game-detail").textContent = JSON.stringify(state, null, 2);
-        $("game-detail").parentElement.open = true;
-        message("已读取独立实验的冻结初始状态");
+        $("game-dialog").showModal();
+        message("已读取实验部署档案。");
       }),
     );
-    box.append(title, id, seed, document.createElement("br"), button);
+    box.append(title, id, seed, button);
     $("games").append(box);
   }
+  paging();
 }
 function download(value, filename) {
   const url = URL.createObjectURL(
@@ -506,6 +675,7 @@ $("auth-form").addEventListener("submit", (e) => {
     if ([...$("draft-list").options].some((o) => o.value === remembered))
       await loadDraft(remembered);
     else message("连接成功，请创建地图或载入预置场景。");
+    $("auth-dialog").close();
   });
 });
 $("disconnect").addEventListener("click", () => {
@@ -524,6 +694,7 @@ $("create-form").addEventListener("submit", (e) => {
     selected = null;
     revision = null;
     await loadDraft(result.id);
+    $("scenario-dialog").close();
   });
 });
 $("draft-list").addEventListener("change", () => {
@@ -545,6 +716,7 @@ $("preset").addEventListener("click", () =>
     selected = null;
     revision = null;
     await loadDraft(result.id);
+    $("scenario-dialog").close();
   }),
 );
 $("import-file").addEventListener("change", () =>
@@ -558,6 +730,7 @@ $("import-file").addEventListener("change", () =>
       selected = null;
       revision = null;
       await loadDraft(result.id);
+      $("scenario-dialog").close();
     } finally {
       $("import-file").value = "";
     }
@@ -632,6 +805,16 @@ $("add-company").addEventListener("click", () => {
 });
 $("regiment-form").addEventListener("submit", (e) => {
   e.preventDefault();
+  const invalid = [...e.target.elements].find(
+    (f) => f.willValidate && !f.checkValidity(),
+  );
+  if (invalid) {
+    const company = invalid.closest(".company");
+    if (company) showCompany([...$("companies").children].indexOf(company));
+    invalid.reportValidity();
+    return;
+  }
+
   run(() =>
     save((s) => {
       const companies = [...$("companies").children].map((div) => {
@@ -708,4 +891,100 @@ $("openapi").addEventListener("click", (e) => {
     message("已读取代码生成的 OpenAPI。");
   });
 });
+document
+  .querySelectorAll("[data-tab]")
+  .forEach((b) =>
+    b.addEventListener("click", () => selectPanel(b.dataset.tab)),
+  );
+document
+  .querySelectorAll("[data-close]")
+  .forEach((b) =>
+    b.addEventListener("click", () => $(b.dataset.close).close()),
+  );
+$("connect-menu").addEventListener("click", () => $("auth-dialog").showModal());
+$("new-scenario").addEventListener("click", () =>
+  $("scenario-dialog").showModal(),
+);
+$("fullscreen").addEventListener("click", async () => {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen();
+  } catch {
+    message("全屏请求未获浏览器允许，可使用 F11。", true);
+  }
+});
+for (const [id, fn] of [
+  [
+    "games-prev",
+    () => {
+      gamePage--;
+      renderGamePage();
+    },
+  ],
+  [
+    "games-next",
+    () => {
+      gamePage++;
+      renderGamePage();
+    },
+  ],
+  [
+    "events-prev",
+    () => {
+      eventPage--;
+      renderEvents();
+    },
+  ],
+  [
+    "events-next",
+    () => {
+      eventPage++;
+      renderEvents();
+    },
+  ],
+])
+  $(id).addEventListener("click", fn);
+$("zoom-in").addEventListener("click", () => zoom(0.8));
+$("zoom-out").addEventListener("click", () => zoom(1.25));
+$("zoom-reset").addEventListener("click", () => {
+  if (mapBounds) {
+    camera = { ...mapBounds };
+    applyCamera();
+  }
+});
+$("map").addEventListener(
+  "wheel",
+  (e) => {
+    if (!camera) return;
+    e.preventDefault();
+    zoom(e.deltaY < 0 ? 0.9 : 1.1, mapPoint(e));
+  },
+  { passive: false },
+);
+$("map").addEventListener("pointerdown", (e) => {
+  if (!camera || e.button !== 0) return;
+  drag = {
+    point: mapPoint(e),
+    x: e.clientX,
+    y: e.clientY,
+    initial: { ...camera },
+  };
+  dragged = false;
+});
+$("map").addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 5) {
+    dragged = true;
+    const p = mapPoint(e);
+    camera.x += drag.point.x - p.x;
+    camera.y += drag.point.y - p.y;
+    applyCamera();
+  }
+});
+window.addEventListener("pointerup", () => {
+  drag = null;
+  setTimeout(() => (dragged = false), 0);
+});
+window.addEventListener("resize", () => renderGamePage());
 controls();
+$("auth-dialog").showModal();

@@ -72,14 +72,14 @@
 **开发内容**
 
 - 初始化 Maven 多模块（使用全局 Maven，不提供 Wrapper）（`core`、`simulation`、`application`、`server`），统一 JDK／依赖版本、格式检查与 JUnit 测试。
-- Spring Boot 可独立启动；暴露健康检查、从路由／DTO／校验注解生成的 OpenAPI（生成文件不纳入版本管理）／示例 `.http` 请求及统一错误响应；定义场景、命令、事件 DTO 的版本策略。
+- Spring Boot 可独立启动；暴露健康检查、从路由／DTO／校验注解生成的 OpenAPI（生成文件不纳入版本管理）／可执行 HTTP 回归请求及统一错误响应；定义场景、命令、事件 DTO 的版本策略。
 - 本地监听 `127.0.0.1`；强随机启动令牌；受保护接口拒绝无效令牌；请求大小、基础参数校验；避免凭据进入日志。
 
 **验收门禁**
 
 - 从干净工作区运行构建与全部测试通过；`server` 可单独启动。
 - cURL／Bruno 携有效令牌访问受保护 API 成功；不带／带错令牌得到 401；外网网卡默认不能连接。
-- `core`／`simulation` 不含 Spring、JavaFX、Servlet 依赖；发布一份 `docs/api-examples.http`。
+- `core`／`simulation` 不含 Spring、JavaFX、Servlet 依赖；提供自动生成 OpenAPI、README 的 cURL 示例和 `scripts/smoke-test.py` HTTP 回归。
 
 ### M1 — 最小 Web 地图编辑与场景冻结
 
@@ -97,6 +97,13 @@
 - 无效坐标、重复占格、非法编制、超限地图及修改已冻结版本返回有意义的 4xx 错误。
 - 修改原始草稿不改变已创建游戏；冻结输入哈希稳定；场景可导出／导入并保持等价。
 - Web 可清晰显示服务端返回的坐标、设施和编制；刷新页面后从服务端重新载入内容一致；非法编辑显示有意义的错误，不靠前端绕过服务端校验。
+
+### M1.1 — 单屏游戏工作台（M1 后的界面修订）
+
+- 以游戏工作台组织界面：地图为核心，侧边部署面板与底部实验/日志同屏，连接和新建场景使用弹窗。
+- 至少适配 1980×1080 显示器，并验证常见浏览器可用高度；主界面尽量无滚动条，满编连队、实验与日志使用标签和分页。
+- 保留 M1 的原生 Web、服务端校验、冻结和导入导出边界，不提前实现 M2 战斗/移动。
+- 删除重复维护的 `.http` 手填样例，HTTP 验收由代码生成 OpenAPI 和可执行回归脚本承担。
 
 ### M2 — 一日 WEGO 结算及最慢连机动
 
@@ -216,7 +223,7 @@ tactical-orchestration/
 │   ├── GDD-tactical-orchestration-requirements.md
 │   ├── TECH-tactical-orchestration.md
 │   ├── PLAN-tactical-orchestration-MVP-implementation.md
-│   ├── api-examples.http
+│   ├── m1-scenarios.md               # 领域契约；接口文档从代码生成
 │   └── MVP-acceptance.md              # M0~M6 逐节点验收记录
 ├── tactical-core/
 ├── tactical-simulation/

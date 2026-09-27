@@ -1,6 +1,6 @@
 # 战术编排 · Tactical Orchestration
 
-M1：原生 Web 六角地图编辑、双方团连与补给部署、场景冻结及独立实验实例。
+M1.1：单屏游戏工作台，支持六角地图编辑、双方团连与补给部署、场景冻结及独立实验实例。
 M0 的 HTTP 认证、输入边界、自动 OpenAPI 和 Maven 构建继续生效。战斗结算从 M2 开始。
 
 ## 环境与构建
@@ -26,10 +26,13 @@ Maven 本地仓库（默认 `~/.m2/repository`）；恢复后执行 `mvn -o clea
 在仓库根目录执行：
 
 ```sh
-java -jar tactical-server/target/tactical-server-0.1.0-SNAPSHOT.jar
+java -Djava.net.preferIPv4Stack=true -jar tactical-server/target/tactical-server-0.1.0-SNAPSHOT.jar
 ```
 
 默认监听 `127.0.0.1:8080`，使用 `--server.port=端口` 更改端口。
+上面的 IPv4 JVM 参数修复本机 WSL2 的 localhost 转发兼容问题；Windows 优先打开
+`http://127.0.0.1:8080/`。通过 WSL 网卡 IP 访问需显式修改绑定地址，详见
+[Windows / WSL2 网络诊断](docs/wsl-networking.md)。
 每次启动生成新的 256-bit 随机令牌，原子写入工作目录下
 `.runtime/session.token`，权限为 0600。令牌不打印到启动日志。
 可用 `TACTICAL_TOKEN_FILE` 指定独立文件路径；多实例必须使用不同端口和令牌文件。
@@ -47,20 +50,26 @@ curl -i http://127.0.0.1:8080/api/v1/system
     http://127.0.0.1:8080/api/v1/contracts/validate
 ```
 
-依次预期 200、401、200、200。Bruno/IDE 示例见 [api-examples.http](docs/api-examples.http)。
+依次预期 200、401、200、200。完整 HTTP 回归由 `scripts/smoke-test.py` 自动执行；
+接口结构从运行服务的 OpenAPI 获取，不再维护重复的手填 `.http` 样例。
 契约检查不创建场景、不执行命令；版本与错误约定见 [contracts.md](docs/contracts.md)。
 
-## 浏览器编辑器（M1）
+## 游戏工作台（M1.1）
 
 启动后打开 `http://127.0.0.1:8080/`，将 `.runtime/session.token` 的内容粘贴到页面并连接。
 
-1. 载入“河谷突破”预置，或创建 2–16 格宽高的空白地图。
-2. 选择六角格，编辑地形、基础工事、相邻格边的河流／桥梁／道路、补给点。
-3. 在团编制表单设置阵营、角色和连队，编辑装备与 HP，点击对应保存按钮。
+1. 载入“河谷突破”预置，或通过“新建战场”创建 2–16 格宽高的空白地图。
+2. 点击六角格，在右侧“地形 / 工程”“团连编制”“补给设施”标签中编辑。滚轮缩放、拖动平移，“适应战场”恢复全图。
+3. 编制面板逐连分页，满编六连也无需向下滚动；编辑装备与 HP 后保存。
 4. 双方城市师部齐备后冻结；从同一冻结版本点击两次“启动独立实验”，得到不同实例 ID。
 5. 可继续修改草稿；已有冻结版本和实验保持原输入。导出 JSON 可在其他服务会话导入。
 
-每个表单保存都经过服务端校验；错误显示在顶部。刷新后重新输入令牌，会从服务端
+主界面以地图为中心，部署面板、实验控制和指挥记录同屏；适配 1980×1080，
+同时验证了 1920×1080 和 1980×960 浏览器可用区域无页面/主面板滚动条。
+连队、实验和记录通过标签/分页浏览；仅主动打开的原始档案允许内部滚动。
+连接、新建场景使用弹窗；全屏按钮或 F11 可进一步增加战场显示区域。
+
+每个表单保存都经过服务端校验；错误显示在底部状态栏，弹窗内也会显示错误。刷新后重新输入令牌，会从服务端
 载入上次选择的草稿。令牌不写入浏览器持久存储。草稿采用版本检查，冲突时请重新载入。
 
 **M1 使用内存仓库**：服务重启会清空草稿、冻结版本、实验及事件；重要场景请导出。
@@ -110,5 +119,6 @@ mkdir -p tactical-server/target
 PLAYWRIGHT_MODULE=/path/to/playwright node scripts/browser-smoke.mjs
 ```
 
-脚本从空白地图完成编辑、冻结、双实验、刷新、错误展示和导入导出，截图输出到
-`tactical-server/target/m1-editor.png` 与 `m1-mobile.png`。
+脚本从空白地图完成编辑、冻结、双实验、刷新、错误展示和导入导出，并验证六连分页、
+多实验分页、地图缩放和目标分辨率布局。截图输出到 `tactical-server/target/m1.1-game.png`。
+可设置 `BROWSER_BIND_ADDRESS` 为本机 WSL IP，验证 HTTP IP 来源的完整流程。
