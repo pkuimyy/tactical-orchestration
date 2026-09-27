@@ -26,7 +26,7 @@ final class ApiController {
 
   @GetMapping("/api/v1/system")
   SystemInfo system() {
-    return new SystemInfo(ContractVersion.CURRENT, "M5", RuleSet.VERSION);
+    return new SystemInfo(ContractVersion.CURRENT, "M6", RuleSet.VERSION);
   }
 
   @PostMapping(value = "/api/v1/contracts/validate", consumes = MediaType.APPLICATION_JSON_VALUE)

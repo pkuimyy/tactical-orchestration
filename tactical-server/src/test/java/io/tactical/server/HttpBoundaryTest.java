@@ -28,7 +28,10 @@ class HttpBoundaryTest {
     SpringApplication app = new SpringApplication(TacticalServer.class);
     app.setDefaultProperties(Map.of("spring.main.banner-mode", "off"));
     context =
-        app.run("--server.port=0", "--tactical.token-file=" + directory.resolve("session.token"));
+        app.run(
+            "--server.port=0",
+            "--tactical.data-dir=" + directory.resolve("data"),
+            "--tactical.token-file=" + directory.resolve("session.token"));
     base = "http://127.0.0.1:" + ((WebServerApplicationContext) context).getWebServer().getPort();
     token = Files.readString(directory.resolve("session.token"));
   }
@@ -38,7 +41,10 @@ class HttpBoundaryTest {
     if (context != null) context.close();
     if (directory != null) {
       Files.deleteIfExists(directory.resolve("session.token"));
-      Files.delete(directory);
+      try (var paths = Files.walk(directory)) {
+        for (var path : paths.sorted(java.util.Comparator.reverseOrder()).toList())
+          Files.delete(path);
+      }
     }
   }
 
@@ -64,7 +70,7 @@ class HttpBoundaryTest {
     assertEquals(401, request("/api/v1/system?token=" + token, "GET", "", null).statusCode());
     var response = request("/api/v1/system", "GET", "", "Bearer " + token);
     assertEquals(200, response.statusCode());
-    assertTrue(response.body().contains("M5"));
+    assertTrue(response.body().contains("M6"));
     assertEquals("no-store", response.headers().firstValue("Cache-Control").orElseThrow());
   }
 

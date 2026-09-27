@@ -1,8 +1,7 @@
 # 战术编排 · Tactical Orchestration
 
-M5：单屏学说实验室，支持初始情报编辑、实验方案保存重开、历史回放，以及地图／任务／日志联动。
-可观察突破失败后的撤退、补给休整、远距炮击，以及每个连的 HP、组织度和决策依据。
-
+M6：可离线运行的原生 Web 学说实验场。支持场景编辑、WEGO 推演、旅级 DAG、历史回放、
+相同冻结部署的 A/B 配对多种子实验，以及跨服务重启的本地归档。
 ## 环境与构建
 
 当前验证平台为 Linux（令牌文件依赖 POSIX 权限）。使用完整 JDK 25 和全局
@@ -35,7 +34,7 @@ java -Djava.net.preferIPv4Stack=true -jar tactical-server/target/tactical-server
 [Windows / WSL2 网络诊断](docs/wsl-networking.md)。
 每次启动生成新的 256-bit 随机令牌，原子写入工作目录下
 `.runtime/session.token`，权限为 0600。令牌不打印到启动日志。
-可用 `TACTICAL_TOKEN_FILE` 指定独立文件路径；多实例必须使用不同端口和令牌文件。
+可用 `TACTICAL_TOKEN_FILE` 指定独立文件路径；多实例必须使用不同端口、令牌文件和数据目录。
 重启后客户端需要重新读取令牌。不要把 token 文件提交到仓库。
 
 ```sh
@@ -54,7 +53,7 @@ curl -i http://127.0.0.1:8080/api/v1/system
 接口结构从运行服务的 OpenAPI 获取，不再维护重复的手填 `.http` 样例。
 契约检查不创建场景、不执行命令；版本与错误约定见 [contracts.md](docs/contracts.md)。
 
-## 游戏工作台（M5）
+## 游戏工作台（M6）
 
 启动后打开 `http://127.0.0.1:8080/`，将 `.runtime/session.token` 的内容粘贴到页面并连接。
 
@@ -69,7 +68,8 @@ curl -i http://127.0.0.1:8080/api/v1/system
 [M2 WEGO 与机动](docs/m2-wego.md)。新增「混编防线」演示连级战损、学说撤退和补给休整，
 操作及规则见 [M3 战斗与学说](docs/m3-combat.md)。
 「渡河协作」预设可在推演的「协作」页载入架桥→渡河任务，操作与规则见 [M4 协作、通信与情报](docs/m4-coordination.md)。新增「河谷实验」可直接运行架桥／炮击→突击→学说撤退，并支持另存首日方案、逐帧回放和筛选；见 [M5 单次实验闭环](docs/m5-doctrine-lab.md)。
-当前数据在进程内存中，重启前请导出重要输入和结果。
+顶部「实验对照」可直接载入河谷 A/B 预设，批量运行、比较连级战损／任务／撤退，打开逐次回放。
+完整操作、指标口径、逐日命令和归档恢复见 [M6 配对实验与本地归档](docs/m6-paired-experiments.md)。
 
 主界面以地图为中心，部署面板、实验控制和指挥记录同屏；适配 1980×1080，
 同时验证了 1920×1080 和 1980×960 浏览器可用区域无页面/主面板滚动条。
@@ -79,14 +79,18 @@ curl -i http://127.0.0.1:8080/api/v1/system
 每个表单保存都经过服务端校验；错误显示在底部状态栏，弹窗内也会显示错误。刷新后重新输入令牌，会从服务端
 载入上次选择的草稿。令牌不写入浏览器持久存储。草稿采用版本检查，冲突时请重新载入。
 
-**当前使用内存仓库**：服务重启会清空草稿、冻结版本、实验及事件；重要输入与结果请导出。
+**本地自动保存**：数据默认位于工作目录下 `.runtime/data`，使用 `TACTICAL_DATA_DIR` 或
+`--tactical.data-dir=/absolute/path` 指定其他目录。成功的写操作保存草稿、冻结版本、战局、待确认命令及日志；
+批量实验逐次保存检查点，重启后继续未完成工作。显式取消的批量不会自动恢复。
+同一目录只允许一个服务写入；备份请停服后复制完整数据目录，使用同一规则版本恢复。
+损坏或版本不兼容的存档会阻止启动并保留原文件，不自动清空。具体限制与恢复步骤见 M6 文档。
 师部只能在草稿中重新部署，运行中的师部不可移动。详细约束见
 [场景契约](docs/m1-scenarios.md)及 [WEGO 规则](docs/m2-wego.md)。
 
 ## 模块
 
 - `tactical-core`：纯 Java 领域与契约不变量。
-- `tactical-simulation`：依赖 core，后续承载确定性引擎。
+- `tactical-simulation`：依赖 core，承载权威确定性引擎。
 - `tactical-application`：依赖 simulation，承载用例。
 - `tactical-server`：依赖 application，HTTP、认证、参数校验与资源适配。
 
@@ -94,10 +98,11 @@ MVP 客户端以实施计划为准，M1 开始使用 Spring Boot 同源原生 We
 不引入独立 CLI、JavaFX、前端框架或客户端规则引擎。
 验收记录见 [MVP-acceptance.md](docs/MVP-acceptance.md)。
 
-独立产物与 M1–M5 HTTP 流程验收（Linux，另需 Python 3 和 cURL）：
+独立产物与 M1–M6 HTTP 流程验收（Linux，另需 Python 3 和 cURL）：
 
 ```sh
 python3 scripts/smoke-test.py
+python3 scripts/m6-smoke-test.py
 ```
 
 脚本临时启动 JAR，验证 HTTP、监听地址、非回环连接拒绝和日志凭据隔离后关闭进程。
@@ -124,11 +129,14 @@ mkdir -p tactical-server/target
 
 ```sh
 PLAYWRIGHT_MODULE=/path/to/playwright node scripts/browser-smoke.mjs
+PLAYWRIGHT_MODULE=/path/to/playwright node scripts/browser-m6.mjs
 ```
 
 脚本从空白地图完成编辑、冻结、双实验、刷新、错误展示和导入导出，并验证六连分页、
 多实验分页、战场管理、M2 双方下令、M3 战斗／撤退／休整／炮击、M4 协作与知识投影、M5 方案重开／初始情报／历史回放与重连、HTTP 重放一致性、日志导出和目标分辨率布局。
-截图输出到 `tactical-server/target/` 的 `m1.1-game.png`、`m1.2-library.png` 、`m2-command.png` 和 `m3-combat.png`。
+M6 专项验收覆盖配对设定、连级详报、分页、历史回放、高级逐日命令和刷新恢复。
+24 团 × 30 天后台运行与强制重启测试结果保存到 `target/m6-benchmark.json`。
+截图输出到 `tactical-server/target/` 的 `m1.1-game.png`、`m1.2-library.png` 、`m2-command.png`、`m3-combat.png` 和 `m6-experiments.png`。
 可设置 `BROWSER_BIND_ADDRESS` 为本机 WSL IP，验证 HTTP IP 来源的完整流程。
 
 顶部「战场管理」独立页签提供搜索、重命名、复制、归档／恢复和删除。复制仅复制部署，

@@ -1206,3 +1206,145 @@ body[aria-busy="true"] #status {
   padding: 6px;
   font-size: 11px;
 }
+
+/* M6: a bounded planning desk and paged after-action report. */
+.experiments-view {
+  display: grid;
+  grid-template-columns: 390px minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px 22px;
+  min-height: 0;
+}
+.experiment-config,
+.paired-results {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 18px;
+  min-height: 0;
+  overflow: hidden;
+}
+.experiment-config {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.experiment-config h2,
+.paired-results h2 {
+  margin: 3px 0 8px;
+}
+.experiment-config p,
+.paired-results p {
+  margin: 4px 0;
+}
+.experiment-config .form-grid,
+.variant-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.variant-grid fieldset {
+  padding: 10px;
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+.variant-grid label + label {
+  margin-top: 10px;
+}
+.paired-results {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.experiment-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#experiment-source {
+  height: 44px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+#experiment-list {
+  max-width: 440px;
+}
+#experiment-meter {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--accent);
+}
+.experiment-summary {
+  background: #101c23;
+  border-left: 3px solid var(--accent);
+  padding: 18px;
+  min-height: 92px;
+  white-space: pre-line;
+}
+.experiment-table {
+  flex: 1;
+  min-height: 0;
+}
+.experiment-table table,
+#experiment-detail table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.experiment-table th,
+.experiment-table td,
+#experiment-detail th,
+#experiment-detail td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.experiment-table th {
+  color: var(--muted);
+  font-size: 12px;
+}
+.experiment-table td button {
+  padding: 5px 8px;
+  margin-right: 8px;
+}
+#experiment-provenance {
+  overflow-wrap: anywhere;
+}
+#experiment-detail-dialog,
+#experiment-advanced-dialog {
+  width: min(1100px, 85vw);
+  max-height: 85vh;
+  overflow: auto;
+}
+#experiment-detail {
+  white-space: pre-wrap;
+}
+#experiment-json {
+  display: block;
+  width: 100%;
+  height: 50vh;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 12px;
+  margin: 12px 0;
+  font: 13px/1.4 monospace;
+}
+#experiment-json-error {
+  color: var(--red);
+}
+@media (max-height: 1000px) {
+  .experiment-config {
+    gap: 7px;
+    padding: 12px;
+  }
+  .experiment-config p {
+    font-size: 11px;
+  }
+  .paired-results {
+    gap: 10px;
+  }
+  .experiment-table th,
+  .experiment-table td {
+    padding: 10px 8px;
+  }
+}

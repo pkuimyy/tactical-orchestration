@@ -20,7 +20,11 @@ import tools.jackson.databind.ObjectMapper;
 @RestController
 @RequestMapping("/api/v1")
 final class ScenarioController {
-  private final ScenarioService service = new ScenarioService();
+  private final ScenarioService service;
+
+  ScenarioController(ScenarioService service) {
+    this.service = service;
+  }
 
   @GetMapping("/scenarios")
   List<DraftSummary> list() {

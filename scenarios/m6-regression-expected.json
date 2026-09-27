@@ -1,0 +1,85 @@
+{
+  "rulesVersion": "m5-lab-1",
+  "cases": {
+    "armor_withdrawal-42": {
+      "stateHash": "f307862c60001d1ce7a73ce09121b8bbab73bcb79876cbb409e8936781726941",
+      "eventsSha256": "18b367c6ef6bf76cdf76e065f3380870a7314bdd8cf46669749793ce2c2eeed2",
+      "eventCount": 25
+    },
+    "communication_connected-42": {
+      "stateHash": "f35a771389c0da3a52b477719d1da534e3d813390a7b7d4c08d6d222eacef931",
+      "eventsSha256": "4d669089179f84fd01f35bdbf79837d8a4992816c3e818862e17e2a68f5d8ad4",
+      "eventCount": 3
+    },
+    "communication_partition-42": {
+      "stateHash": "831cbf52d1f3c8aa56086e7477cfaf8d66b8a95843ca9659b5603a4dbcbecd7b",
+      "eventsSha256": "d94a83dc5d5ff5fc995c16921304593e1a046615f383d3c346ec579cfb072716",
+      "eventCount": 2
+    },
+    "fire_preparation-1": {
+      "stateHash": "2f6dc61ccd386fc3202ac991c52259713b57b3d75c7624946fe2a56e1fc005be",
+      "eventsSha256": "a490800cc8359e0d254e8b39a6bf37f5dc26af82c82c97d6b61eef64b814e6ff",
+      "eventCount": 43
+    },
+    "fire_preparation-2": {
+      "stateHash": "a80006fc0c3c8bb7dece686d5689eb7018e70d6a2b444b4cbe6578828d2ae6bb",
+      "eventsSha256": "65ef827de7403787f4f90d00de46b02917760e5e748717ad017426b4badea689",
+      "eventCount": 43
+    },
+    "fire_preparation-42": {
+      "stateHash": "2f6dc61ccd386fc3202ac991c52259713b57b3d75c7624946fe2a56e1fc005be",
+      "eventsSha256": "a490800cc8359e0d254e8b39a6bf37f5dc26af82c82c97d6b61eef64b814e6ff",
+      "eventCount": 43
+    },
+    "line_holding-42": {
+      "stateHash": "f307862c60001d1ce7a73ce09121b8bbab73bcb79876cbb409e8936781726941",
+      "eventsSha256": "18b367c6ef6bf76cdf76e065f3380870a7314bdd8cf46669749793ce2c2eeed2",
+      "eventCount": 25
+    },
+    "recon_pursuit-1": {
+      "stateHash": "ae1ffaf6988a51c4820fcea2f2bce37908130dc389d87dc3412aff45094e83e7",
+      "eventsSha256": "00b8ecdaf00a0569632316516100f3b16b45b898999e42f6695d12d996deb068",
+      "eventCount": 17
+    },
+    "recon_pursuit-2": {
+      "stateHash": "2fa33fed5aa95f2742750953f3992b4d853c36d19d35511efb02606b5011ab95",
+      "eventsSha256": "2720e12c019cad22e5beb0d158b54afd7caaa2829f6d4640a24d72d3bc4a68dd",
+      "eventCount": 17
+    },
+    "recon_pursuit-42": {
+      "stateHash": "ae1ffaf6988a51c4820fcea2f2bce37908130dc389d87dc3412aff45094e83e7",
+      "eventsSha256": "00b8ecdaf00a0569632316516100f3b16b45b898999e42f6695d12d996deb068",
+      "eventCount": 17
+    },
+    "river_crossing-1": {
+      "stateHash": "1ef749be975c3896e3a6eecd2733a86eb9eb8f82fd7a888f169ce6d5632d9438",
+      "eventsSha256": "29d98c75c70c0f8b318502dc12b8bbda9c372f3715cbc10f45c4bff8131f450a",
+      "eventCount": 17
+    },
+    "river_crossing-2": {
+      "stateHash": "8c14f13f74eb2d6cd57ecee9e7aefdc915f9f6e3c85fbf0c0e7ba0fbcf8e5177",
+      "eventsSha256": "4415be59c4bc6c6ca6fd1b9997fb8eedba187288174afc9a1e3132e9660faed2",
+      "eventCount": 17
+    },
+    "river_crossing-42": {
+      "stateHash": "1ef749be975c3896e3a6eecd2733a86eb9eb8f82fd7a888f169ce6d5632d9438",
+      "eventsSha256": "29d98c75c70c0f8b318502dc12b8bbda9c372f3715cbc10f45c4bff8131f450a",
+      "eventCount": 17
+    },
+    "screening_mountain-42": {
+      "stateHash": "99806d7779491a02369d6f57b7a58927f620ffd35716bac6d731735c884711cb",
+      "eventsSha256": "1325374d746aa30f2f2fad5fdccf061d318dd48b38b3bdc73a7b3459285c3419",
+      "eventCount": 14
+    },
+    "screening_plain-42": {
+      "stateHash": "6ddc8fc1fd136c25c8e67aab99f136506ef7615a5157bd6264205ebd55a92aa1",
+      "eventsSha256": "da2f59cfcde21f4e41f4764fef0d356952306bf450236d30ba7185f63a7deca4",
+      "eventCount": 14
+    },
+    "screening_regiment-42": {
+      "stateHash": "44b7392bb93cd27e812e69025a5fce3c981e4e682124ae165ff3cffd31de917e",
+      "eventsSha256": "0a88b9320b875601bf0a1048470ad6231ac4477b3a3b8fbbac1fc54205069928",
+      "eventCount": 11
+    }
+  }
+}

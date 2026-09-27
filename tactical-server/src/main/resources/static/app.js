@@ -208,6 +208,7 @@ function controls() {
       document.querySelector(`[data-turn-tab="${id}"]`).disabled = true;
   document.body.setAttribute("aria-busy", String(busy));
   $("retry-request").disabled = busy;
+  if (activeView === "experiments") renderExperiment();
 }
 async function run(action) {
   if (busy) return;
@@ -1173,6 +1174,7 @@ let libraryRows = [],
   renameTarget = null;
 function switchHeader(library) {
   stopReplay();
+  hideExperiments();
   activeView = library ? "library" : "workspace";
   document.querySelector(".game-board").hidden = library;
   $("library-view").hidden = !library;
@@ -1455,6 +1457,7 @@ async function openBattle(id) {
   };
   lastDay = null;
   if (turn.day > 1) lastDay = await api(`/games/${id}/days/${turn.day - 1}`);
+  hideExperiments();
   activeView = "battle";
   document.querySelector(".operation-title > span").textContent =
     "军事学说实验场 / 运行战场";
@@ -2633,4 +2636,427 @@ $("preset-lab").addEventListener("click", () =>
 $("map-inspect").addEventListener("click", () => {
   mapInspect = !mapInspect;
   renderMap();
+});
+
+// M6: all execution and metrics come from the server; this is an HTTP client only.
+let experimentRevision = null,
+  experimentJob = null,
+  experimentRowsPage = 0;
+let experimentTimer = null,
+  experimentGeneration = 0,
+  experimentAdvanced = null,
+  experimentPending = null;
+const experimentLabels = {
+  QUEUED: "排队中",
+  RUNNING: "运行中",
+  COMPLETED: "已完成",
+  CANCELLED: "已停止",
+  FAILED: "执行失败",
+  INVALID_PLAN: "命令不可执行",
+  REACHED: "已达成",
+  NOT_REACHED: "未达成",
+  NOT_CONFIGURED: "未设目标",
+};
+function hideExperiments() {
+  clearTimeout(experimentTimer);
+  experimentGeneration++;
+  $("experiments-view").hidden = true;
+  $("experiments-bar").hidden = true;
+  $("experiments-tab").setAttribute("aria-pressed", "false");
+}
+function showExperiments() {
+  stopReplay();
+  activeView = "experiments";
+  document.querySelector(".game-board").hidden = true;
+  $("library-view").hidden = true;
+  document.querySelector(".scenario-bar").hidden = true;
+  $("battle-bar").hidden = true;
+  $("experiments-view").hidden = false;
+  $("experiments-bar").hidden = false;
+  for (const name of ["workspace", "library", "battle", "experiments"])
+    $(name + "-tab").setAttribute(
+      "aria-pressed",
+      String(name === "experiments"),
+    );
+  document.querySelector(".operation-title > span").textContent =
+    "军事学说实验场 / 配对对照";
+}
+async function experimentUse(rev) {
+  experimentRevision = rev;
+  experimentAdvanced = null;
+  experimentPending = null;
+  $("draft-meta").textContent = rev.scenario.name;
+  $("experiment-source").textContent =
+    `${rev.scenario.name} · 冻结 ${rev.contentHash.slice(0, 16)}`;
+  $("experiment-source").title = rev.contentHash;
+  optionList($("experiment-goal-unit"), [
+    ["", "不设置占格目标"],
+    ...rev.scenario.regiments
+      .filter((r) => r.role === "REGIMENT")
+      .map((r) => [r.id, r.name]),
+  ]);
+  if (rev.scenario.regiments.some((r) => r.id === "blue-armor"))
+    $("experiment-goal-unit").value = "blue-armor";
+  $("experiment-config-note").textContent =
+    "同一冻结部署；A/B 只修改蓝方协同模式与突破学说阈值。其他命令使用冻结方案。";
+}
+function experimentRequest() {
+  if (!experimentRevision) throw new Error("请先选择冻结版本或载入河谷对照。");
+  if (experimentAdvanced) return structuredClone(experimentAdvanced);
+  const seeds = $("experiment-seeds")
+    .value.split(",")
+    .map((s) => s.trim());
+  if (seeds.some((s) => !/^-?\d+$/.test(s) || !Number.isSafeInteger(Number(s))))
+    throw new Error("种子必须为逗号分隔的安全整数。");
+  const days = Number($("experiment-days").value);
+  if (!Number.isInteger(days) || days < 1 || days > 30)
+    throw new Error("观察天数为 1–30。");
+  const variant = (key) => {
+    const setup = structuredClone(experimentRevision.scenario.setup),
+      mode = $("experiment-mode-" + key).value;
+    const threshold = Number($("experiment-threshold-" + key).value);
+    if (!Number.isInteger(threshold) || threshold < 0 || threshold > 100)
+      throw new Error("撤退阈值为 0–100。");
+    if (setup.blueOperation) setup.blueOperation.mode = mode;
+    for (const order of setup.blue)
+      if (order.doctrine?.template === "BREAKTHROUGH")
+        order.doctrine.withdrawBelowPercent = threshold;
+    return {
+      name: `${key.toUpperCase()} · ${mode === "COORDINATED" ? "旅部保序" : "团独立行动"} / ${threshold}%`,
+      days: [
+        setup,
+        ...Array.from({ length: days - 1 }, () => ({
+          blue: [],
+          red: [],
+          blueOperation: null,
+          redOperation: null,
+        })),
+      ],
+    };
+  };
+  const regimentId = $("experiment-goal-unit").value;
+  return {
+    revisionId: experimentRevision.id,
+    seeds: seeds.map(Number),
+    maxIterations: Number($("experiment-iterations").value),
+    a: variant("a"),
+    b: variant("b"),
+    goal: regimentId
+      ? {
+          regimentId,
+          position: {
+            q: Number($("experiment-goal-q").value),
+            r: Number($("experiment-goal-r").value),
+          },
+        }
+      : null,
+  };
+}
+async function experimentRefresh(preferred) {
+  const jobs = await api("/experiments"),
+    selected = preferred || experimentJob?.id || jobs.at(-1)?.id || "";
+  optionList(
+    $("experiment-list"),
+    [
+      ["", "选择实验归档"],
+      ...jobs.map((j) => [
+        j.id,
+        `${j.scenarioName} · ${j.id.slice(0, 8)} · ${experimentLabels[j.status]}`,
+      ]),
+    ],
+    selected,
+  );
+  if (selected) await experimentLoad(selected);
+}
+async function experimentLoad(id) {
+  clearTimeout(experimentTimer);
+  const generation = ++experimentGeneration;
+  const job = await api(`/experiments/${id}`);
+  if (generation !== experimentGeneration) return;
+  experimentJob = job;
+  renderExperiment();
+  if (
+    ["QUEUED", "RUNNING"].includes(job.status) &&
+    activeView === "experiments"
+  ) {
+    experimentTimer = setTimeout(
+      () =>
+        experimentLoad(id).catch((e) => {
+          if (activeView === "experiments")
+            message(`${e.message} 可使用「读取归档」重新连接。`, true);
+        }),
+      600,
+    );
+  }
+}
+function renderExperiment() {
+  const j = experimentJob;
+  $("experiment-start").disabled = busy || !token || !experimentRevision;
+  $("experiment-advanced").disabled = busy || !experimentRevision;
+  $("experiment-cancel").disabled =
+    busy || !token || !j || !["QUEUED", "RUNNING"].includes(j.status);
+  $("experiment-export").disabled = busy || !token || !j;
+  $("experiment-delete").disabled =
+    busy || !token || !j || ["QUEUED", "RUNNING"].includes(j.status);
+  if (!j) return;
+  $("draft-meta").textContent = j.scenarioName;
+  const option = [...$("experiment-list").options].find(
+    (o) => o.value === j.id,
+  );
+  if (option)
+    option.textContent = `${j.scenarioName} · ${j.id.slice(0, 8)} · ${experimentLabels[j.status]}`;
+  $("experiment-progress").textContent =
+    `${experimentLabels[j.status]} · ${j.completed} / ${j.total} 次运行 · ${j.nameA} ↔ ${j.nameB}${j.error ? " · " + j.error : ""}`;
+  $("experiment-meter").max = j.total;
+  $("experiment-meter").value = j.completed;
+  $("experiment-cancel").disabled =
+    busy || !token || !["QUEUED", "RUNNING"].includes(j.status);
+  const p = j.paired,
+    n = (value) => Number(value.toFixed(2));
+  $("experiment-summary").textContent =
+    `${p.count} 组完整配对 · 占格目标 A ${p.goalsA} / B ${p.goalsB}\n平均差 B − A：蓝方扣血 ${n(p.blueDamageDelta)} · 红方扣血 ${n(p.redDamageDelta)} · 等待 ${n(p.waitDelta)} · 依赖失序 ${n(p.disorderDelta)}。仅描述这组种子，不作普遍优劣结论。`;
+  const pages = Math.max(1, Math.ceil(j.rows.length / 6));
+  experimentRowsPage = Math.min(experimentRowsPage, pages - 1);
+  $("experiment-page").textContent = `${experimentRowsPage + 1} / ${pages}`;
+  $("experiment-prev").disabled = busy || experimentRowsPage === 0;
+  $("experiment-next").disabled = busy || experimentRowsPage + 1 >= pages;
+  $("experiment-rows").replaceChildren();
+  for (const r of j.rows.slice(
+    experimentRowsPage * 6,
+    experimentRowsPage * 6 + 6,
+  )) {
+    const row = document.createElement("tr");
+    row.dataset.runIndex = r.index;
+    for (const value of [
+      `${r.seed} / ${r.variant}`,
+      r.status !== "COMPLETED"
+        ? experimentLabels[r.status]
+        : `${experimentLabels[r.goalStatus]} / ${r.completionDay ?? "—"}`,
+      `${r.blueDamage} / ${r.redDamage}`,
+      `${r.waits} / ${r.ineffective}`,
+      `${r.dependencyDisorders} / ${r.taskFailures}`,
+    ]) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.append(cell);
+    }
+    const actions = document.createElement("td"),
+      detail = document.createElement("button"),
+      replayButton = document.createElement("button");
+    detail.className = "secondary";
+    detail.textContent = "详报";
+    detail.disabled = busy || !token;
+    detail.addEventListener("click", () =>
+      run(() => experimentDetail(j.id, r.index)),
+    );
+    replayButton.className = "secondary";
+    replayButton.textContent = "回放";
+    replayButton.disabled = busy || !token || r.status !== "COMPLETED";
+    replayButton.addEventListener("click", () =>
+      run(async () => {
+        const game = await api(
+          `/experiments/${j.id}/runs/${r.index}/game`,
+          "POST",
+        );
+        await openBattle(game.id);
+        await loadReplay(1, 0);
+        message("已打开配对实验的独立历史回放。");
+      }),
+    );
+    actions.append(detail, replayButton);
+    row.append(actions);
+    $("experiment-rows").append(row);
+  }
+  $("experiment-provenance").textContent =
+    `冻结哈希 ${j.scenarioHash} · 规则 ${j.rulesVersion} · 实验 ${j.id}`;
+}
+async function experimentDetail(id, index) {
+  const result = await api(`/experiments/${id}/runs/${index}`),
+    m = result.metrics;
+  $("experiment-detail-title").textContent =
+    `方案 ${result.variant} · 种子 ${result.seed} · ${experimentLabels[result.status]}`;
+  const report = $("experiment-detail");
+  report.replaceChildren();
+  const note = document.createElement("p");
+  note.textContent = `${result.error}\n撤退：${m.retreats.map((r) => `D${r.day} ${r.regimentId} → ${r.supplyId} · 日末 ${r.dayEndPosition ? `${r.dayEndPosition.q},${r.dayEndPosition.r}` : "单位已不存在"} · ${r.reachedSupply ? "已到达补给点" : "未到达补给点"}（规划路径 ${r.route.map((p) => `${p.q},${p.r}`).join(" → ")}）`).join("；") || "无"}\n目标：${experimentLabels[m.goalStatus]}；完成天数：${m.completionDay ?? "—"}；实际结算 ${m.simulatedDays} 天。`;
+  report.append(note);
+  const table = document.createElement("table");
+  for (const values of [
+    ["阵营 / 团 / 连", "初始 HP", "最终 HP", "累计扣血", "恢复"],
+    ...m.companies.map((c) => [
+      `${c.side} / ${c.regimentId} / ${c.companyId}`,
+      c.initialHp,
+      c.finalHp,
+      c.damage,
+      c.recovered,
+    ]),
+  ]) {
+    const row = document.createElement("tr");
+    for (const value of values) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.append(cell);
+    }
+    table.append(row);
+  }
+  report.append(table);
+  const tasks = document.createElement("p");
+  tasks.textContent =
+    "逐日任务结果\n" +
+    m.tasks
+      .map((t) => `D${t.day} ${t.side} ${t.orderId} · ${t.status}`)
+      .join("\n");
+  report.append(tasks);
+  const download = document.createElement("button");
+  download.textContent = "导出本次清单与日志";
+  download.addEventListener("click", () =>
+    saveJson(`experiment-${id}-${index}.json`, result),
+  );
+  report.append(download);
+  $("experiment-detail-dialog").showModal();
+}
+function saveJson(name, value) {
+  const link = document.createElement("a"),
+    url = URL.createObjectURL(
+      new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }),
+    );
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+$("experiments-tab").addEventListener("click", () =>
+  run(async () => {
+    showExperiments();
+    await experimentRefresh();
+  }),
+);
+$("experiment-preset").addEventListener("click", () =>
+  run(async () => {
+    const scenario = await api("/presets/doctrine-lab"),
+      created = await api("/scenarios/import", "POST", scenario);
+    const rev = await api(`/scenarios/${created.id}/revisions`, "POST", {
+      expectedVersion: created.version,
+    });
+    await experimentUse(rev);
+    message("河谷配对输入已冻结，可启动 A/B 实验。");
+  }),
+);
+$("experiment-current").addEventListener("click", () =>
+  run(async () => {
+    if (!revision) throw new Error("请先在部署页冻结场景。");
+    await experimentUse(await api(`/revisions/${revision.id}`));
+    message("已选用当前冻结版本。");
+  }),
+);
+$("experiment-start").addEventListener("click", () =>
+  run(async () => {
+    const body = experimentRequest(),
+      serialized = JSON.stringify(body);
+    if (experimentPending?.serialized !== serialized)
+      experimentPending = {
+        serialized,
+        requestId: crypto.randomUUID ? crypto.randomUUID() : uid("experiment"),
+      };
+    const created = await api("/experiments", "POST", {
+      ...body,
+      requestId: experimentPending.requestId,
+    });
+    experimentPending = null;
+    experimentRowsPage = 0;
+    await experimentRefresh(created.id);
+    message("配对实验已提交，结果自动更新。");
+  }),
+);
+$("experiment-refresh").addEventListener("click", () =>
+  run(() => experimentRefresh()),
+);
+$("experiment-list").addEventListener("change", () => {
+  if ($("experiment-list").value)
+    run(() => {
+      experimentRowsPage = 0;
+      return experimentLoad($("experiment-list").value);
+    });
+});
+$("experiment-cancel").addEventListener("click", () =>
+  run(async () => {
+    if (experimentJob) {
+      await api(`/experiments/${experimentJob.id}/cancel`, "POST");
+      await experimentLoad(experimentJob.id);
+    }
+  }),
+);
+$("experiment-export").addEventListener("click", () =>
+  run(async () => {
+    if (!experimentJob) throw new Error("请先选择实验。");
+    saveJson(
+      `experiment-${experimentJob.id}.json`,
+      await api(`/experiments/${experimentJob.id}/export`),
+    );
+  }),
+);
+$("experiment-prev").addEventListener("click", () => {
+  experimentRowsPage--;
+  renderExperiment();
+});
+$("experiment-next").addEventListener("click", () => {
+  experimentRowsPage++;
+  renderExperiment();
+});
+$("experiment-advanced").addEventListener("click", () =>
+  run(async () => {
+    $("experiment-json").value = JSON.stringify(experimentRequest(), null, 2);
+    $("experiment-json-error").textContent = "";
+    $("experiment-advanced-dialog").showModal();
+  }),
+);
+$("experiment-json-save").addEventListener("click", () => {
+  try {
+    const value = JSON.parse($("experiment-json").value);
+    if (
+      value.revisionId !== experimentRevision.id ||
+      !value.a?.days?.length ||
+      !value.b?.days?.length
+    )
+      throw new Error("保留原冻结版本并提供两份逐日命令表。");
+    delete value.requestId;
+    experimentAdvanced = value;
+    experimentPending = null;
+    $("experiment-config-note").textContent =
+      "高级逐日设定已启用；下次启动使用此 JSON。修改普通控件将返回普通设定。";
+    $("experiment-advanced-dialog").close();
+  } catch (e) {
+    $("experiment-json-error").textContent = e.message;
+  }
+});
+$("experiments-view")
+  .querySelectorAll("input, select")
+  .forEach((el) =>
+    el.addEventListener("change", () => {
+      experimentAdvanced = null;
+      experimentPending = null;
+      $("experiment-config-note").textContent =
+        "使用普通设定：首日命令，后续日无新命令。";
+    }),
+  );
+
+$("experiment-delete").addEventListener("click", () => {
+  if (
+    !experimentJob ||
+    !confirm(
+      "删除所选实验归档及其批量结果？已打开的独立战局保留。需要备份时请先导出。",
+    )
+  )
+    return;
+  run(async () => {
+    await api(`/experiments/${experimentJob.id}`, "DELETE");
+    experimentJob = null;
+    experimentRowsPage = 0;
+    $("experiment-rows").replaceChildren();
+    $("experiment-meter").value = 0;
+    $("experiment-progress").textContent = "归档已删除。";
+    $("experiment-summary").textContent = "选择或启动下一组实验。";
+    await experimentRefresh();
+    message("所选实验归档已删除。");
+  });
 });

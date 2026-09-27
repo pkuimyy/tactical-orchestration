@@ -18,6 +18,73 @@ public final class ScenarioService {
   private long sequence;
   private final Set<String> archived = new HashSet<>();
 
+  public record Saved(
+      int schemaVersion,
+      String rulesVersion,
+      List<Draft> drafts,
+      List<Revision> revisions,
+      List<Game> games,
+      Map<String, BattleSession.Saved> battles,
+      List<EditEvent> events,
+      long sequence,
+      Set<String> archived) {}
+
+  private java.util.function.Consumer<Saved> persistence = ignored -> {};
+  private Saved checkpoint;
+
+  public synchronized Saved save() {
+    var savedBattles = new TreeMap<String, BattleSession.Saved>();
+    battles.forEach(
+        (id, battle) -> savedBattles.put(id, battle.save(games.get(id).initialState())));
+    return new Saved(
+        1,
+        RuleSet.VERSION,
+        List.copyOf(drafts.values()),
+        List.copyOf(revisions.values()),
+        List.copyOf(games.values()),
+        Collections.unmodifiableMap(savedBattles),
+        List.copyOf(events),
+        sequence,
+        Set.copyOf(archived));
+  }
+
+  public synchronized void restore(Saved saved) {
+    if (saved.schemaVersion() != 1 || !RuleSet.VERSION.equals(saved.rulesVersion()))
+      throw new IllegalStateException("本地存档格式或规则版本不兼容");
+    var restored = new HashMap<String, BattleSession>();
+    saved.battles().forEach((id, battle) -> restored.put(id, BattleSession.restore(battle)));
+    drafts.clear();
+    saved.drafts().forEach(d -> drafts.put(d.id(), d));
+    revisions.clear();
+    saved.revisions().forEach(r -> revisions.put(r.id(), r));
+    games.clear();
+    saved.games().forEach(g -> games.put(g.id(), g));
+    battles.clear();
+    battles.putAll(restored);
+    events.clear();
+    events.addAll(saved.events());
+    sequence = saved.sequence();
+    archived.clear();
+    archived.addAll(saved.archived());
+  }
+
+  public synchronized void persistWith(java.util.function.Consumer<Saved> writer) {
+    persistence = writer;
+    checkpoint = save();
+  }
+
+  private void changed() {
+    if (checkpoint == null) return;
+    var next = save();
+    try {
+      persistence.accept(next);
+      checkpoint = next;
+    } catch (RuntimeException failure) {
+      restore(checkpoint);
+      throw failure;
+    }
+  }
+
   public record Draft(String id, long version, Scenario scenario) {}
 
   public record DraftSummary(
@@ -79,6 +146,7 @@ public final class ScenarioService {
     Draft draft = new Draft(UUID.randomUUID().toString(), 1, normalized);
     drafts.put(draft.id(), draft);
     event("DRAFT_CREATED", draft.id(), draft.id(), ScenarioHash.sha256(normalized));
+    changed();
     return draft;
   }
 
@@ -93,6 +161,7 @@ public final class ScenarioService {
     Draft draft = new Draft(id, old.version() + 1, normalized);
     drafts.put(id, draft);
     event("DRAFT_UPDATED", id, id, ScenarioHash.sha256(normalized));
+    changed();
     return draft;
   }
 
@@ -147,6 +216,7 @@ public final class ScenarioService {
     Draft next = new Draft(id, old.version() + 1, old.scenario());
     drafts.put(id, next);
     event(value ? "DRAFT_ARCHIVED" : "DRAFT_RESTORED", id, id, ScenarioHash.sha256(old.scenario()));
+    changed();
     return next;
   }
 
@@ -158,6 +228,7 @@ public final class ScenarioService {
     drafts.remove(id);
     archived.remove(id);
     events.removeIf(e -> e.scenarioId().equals(id));
+    changed();
   }
 
   public synchronized Revision freeze(String id, long expectedVersion) {
@@ -181,6 +252,7 @@ public final class ScenarioService {
             draft.scenario());
     revisions.put(revision.id(), revision);
     event("SCENARIO_FROZEN", id, revision.id(), hash);
+    changed();
     return revision;
   }
 
@@ -214,7 +286,42 @@ public final class ScenarioService {
     games.put(game.id(), game);
     battles.put(game.id(), battle);
     event("GAME_CREATED", revision.scenarioId(), game.id(), game.contentHash());
+    changed();
     return game;
+  }
+
+  /** Stable ID makes opening an experiment result safe to retry. */
+  public synchronized Game importRun(
+      String experimentId, Revision revision, ExperimentRunner.Run run, int iterations) {
+    if (!run.status().equals("COMPLETED")) throw new ScenarioViolation("只有完整运行可以打开为战局");
+    String id =
+        UUID.nameUUIDFromBytes(
+                (experimentId + ":" + run.index())
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8))
+            .toString();
+    if (games.containsKey(id)) return game(id);
+    revision(revision.id());
+    limit(games.size(), 128, "实验实例");
+    var empty = new BattleSession.Batch(0, false, false, List.of(), null);
+    var battle =
+        BattleSession.restore(
+            new BattleSession.Saved(
+                revision.scenario(), run.seed(), iterations, run.days(), empty, empty));
+    var game =
+        new Game(
+            id,
+            revision.id(),
+            revision.contentHash(),
+            RuleSet.VERSION,
+            run.seed(),
+            0,
+            "PLANNING",
+            revision.scenario());
+    games.put(id, game);
+    battles.put(id, battle);
+    event("EXPERIMENT_OPENED", revision.scenarioId(), id, revision.contentHash());
+    changed();
+    return game(id);
   }
 
   public synchronized Game game(String id) {
@@ -296,24 +403,32 @@ public final class ScenarioService {
       List<MovementOrder> orders,
       OperationPlan operation) {
     game(id);
-    return battles.get(id).submit(day, side, expectedVersion, orders, operation);
+    var result = battles.get(id).submit(day, side, expectedVersion, orders, operation);
+    changed();
+    return result;
   }
 
   public synchronized BattleSession.View submit(
       String id, int day, Scenario.Side side, long expectedVersion, List<MovementOrder> orders) {
     game(id);
-    return battles.get(id).submit(day, side, expectedVersion, orders);
+    var result = battles.get(id).submit(day, side, expectedVersion, orders);
+    changed();
+    return result;
   }
 
   public synchronized BattleSession.View commit(
       String id, int day, Scenario.Side side, long expectedVersion) {
     game(id);
-    return battles.get(id).commit(day, side, expectedVersion);
+    var result = battles.get(id).commit(day, side, expectedVersion);
+    changed();
+    return result;
   }
 
   public synchronized BattleSession.Day resolve(String id, int day) {
     game(id);
-    return battles.get(id).resolve(day);
+    var result = battles.get(id).resolve(day);
+    changed();
+    return result;
   }
 
   public synchronized BattleSession.Day day(String id, int day) {

@@ -13,13 +13,14 @@
         <span class="brand-mark">策</span>
         <div>
           <h1>战术编排</h1>
-          <span class="eyebrow">TACTICAL ORCHESTRATION · M5</span>
+          <span class="eyebrow">TACTICAL ORCHESTRATION · M6</span>
         </div>
       </div>
       <nav class="header-tabs" aria-label="主导航">
         <button id="workspace-tab" aria-pressed="true">部署战场</button
         ><button id="library-tab" aria-pressed="false">战场管理</button
-        ><button id="battle-tab" aria-pressed="false">推演指挥</button>
+        ><button id="battle-tab" aria-pressed="false">推演指挥</button
+        ><button id="experiments-tab" aria-pressed="false">实验对照</button>
       </nav>
       <div class="operation-title">
         <span>军事学说实验场 / 初始部署</span
@@ -71,6 +72,203 @@
       <button id="export-day" class="secondary">导出运行清单</button>
       <button id="export-events" class="secondary">导出事件 JSONL</button>
     </nav>
+    <nav
+      id="experiments-bar"
+      class="scenario-bar"
+      hidden
+      aria-label="对照实验操作"
+    >
+      <strong>配对实验 / PAIRED TRIALS</strong
+      ><span class="force-summary">同一冻结部署 · 相同种子 · 独立起点</span>
+      <button id="experiment-refresh" class="secondary" data-auth>
+        读取归档
+      </button>
+      <select id="experiment-list" aria-label="实验归档">
+        <option value="">尚无实验</option>
+      </select>
+      <button id="experiment-export" class="secondary">导出完整归档</button
+      ><button id="experiment-delete" class="secondary">删除归档</button>
+    </nav>
+    <main id="experiments-view" class="experiments-view" hidden>
+      <section class="experiment-config">
+        <span class="eyebrow">EXPERIMENT DESIGN</span>
+        <h2>对照设定</h2>
+        <div class="toolbar">
+          <button id="experiment-preset" data-auth>载入河谷对照</button
+          ><button id="experiment-current" class="secondary" data-auth>
+            使用当前冻结版本
+          </button>
+        </div>
+        <p id="experiment-source" class="muted">选择冻结版本或载入预设。</p>
+        <label
+          >配对种子（逗号分隔，最多 16 个）<input
+            id="experiment-seeds"
+            value="1,2,3,42"
+        /></label>
+        <div class="form-grid">
+          <label
+            >观察天数<input
+              id="experiment-days"
+              type="number"
+              value="1"
+              min="1"
+              max="30" /></label
+          ><label
+            >日内迭代上限<input
+              id="experiment-iterations"
+              type="number"
+              min="1"
+              max="8"
+              value="6"
+          /></label>
+        </div>
+        <p class="muted">
+          首日执行方案；后续日默认无新命令，保留学说。逐日命令可在高级设定中编辑。
+        </p>
+        <div class="variant-grid">
+          <fieldset>
+            <legend>A · 基准</legend>
+            <label
+              >任务组织<select id="experiment-mode-a">
+                <option value="COORDINATED">旅部保序</option>
+                <option value="INDEPENDENT">团独立行动</option>
+              </select></label
+            ><label
+              >突破撤退阈值 %<input
+                id="experiment-threshold-a"
+                type="number"
+                min="0"
+                max="100"
+                value="35"
+            /></label>
+          </fieldset>
+          <fieldset>
+            <legend>B · 对照</legend>
+            <label
+              >任务组织<select id="experiment-mode-b">
+                <option value="INDEPENDENT">团独立行动</option>
+                <option value="COORDINATED">旅部保序</option>
+              </select></label
+            ><label
+              >突破撤退阈值 %<input
+                id="experiment-threshold-b"
+                type="number"
+                min="0"
+                max="100"
+                value="35"
+            /></label>
+          </fieldset>
+        </div>
+        <label
+          >目标团（以日末占格判断；可不设）<select id="experiment-goal-unit">
+            <option value="">不设置占格目标</option>
+          </select></label
+        >
+        <div class="form-grid">
+          <label
+            >目标 q<input
+              id="experiment-goal-q"
+              type="number"
+              value="4"
+              min="0"
+              max="15" /></label
+          ><label
+            >目标 r<input
+              id="experiment-goal-r"
+              type="number"
+              value="0"
+              min="0"
+              max="15"
+          /></label>
+        </div>
+        <div class="toolbar">
+          <button id="experiment-start" data-auth>启动配对实验</button
+          ><button id="experiment-advanced" class="secondary">
+            逐日命令 / 高级
+          </button>
+        </div>
+        <p id="experiment-config-note" class="muted">
+          只改变命令、学说和协同配置；部署、初始情报及敌军保持同一冻结输入。
+        </p>
+      </section>
+      <section class="paired-results">
+        <div class="experiment-heading">
+          <div>
+            <span class="eyebrow">AFTER ACTION REVIEW</span>
+            <h2>配对结果</h2>
+          </div>
+          <button id="experiment-cancel" class="secondary">停止批量</button>
+        </div>
+        <p id="experiment-progress" role="status">
+          等待实验。后台运行期间可继续查看战场。
+        </p>
+        <progress id="experiment-meter" value="0" max="1"></progress>
+        <div id="experiment-summary" class="experiment-summary">
+          按种子逐对比较，不生成综合胜负评分。
+        </div>
+        <div class="experiment-table">
+          <table>
+            <thead>
+              <tr>
+                <th>种子 / 方案</th>
+                <th>占格目标 / 天</th>
+                <th>蓝 / 红损失</th>
+                <th>等待 / 无效</th>
+                <th>失序 / 失败</th>
+                <th>查阅</th>
+              </tr>
+            </thead>
+            <tbody id="experiment-rows"></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <button id="experiment-prev" class="secondary">上一页</button
+          ><span id="experiment-page">0 / 0</span
+          ><button id="experiment-next" class="secondary">下一页</button>
+        </div>
+        <p id="experiment-provenance" class="muted">
+          结果将归档到本地数据目录，重启后可重新读取。
+        </p>
+        <p class="muted">
+          HP
+          损失为累计实际扣血，休整恢复单独列出。等待按状态日志计次；失序按启动时尚未成功完成的前置依赖计次。高级设定的非法后续命令会标记该次运行失败，排除出完整配对统计。
+        </p>
+      </section>
+    </main>
+    <dialog
+      id="experiment-detail-dialog"
+      aria-labelledby="experiment-detail-title"
+    >
+      <div class="dialog-heading">
+        <h2 id="experiment-detail-title">运行详报</h2>
+        <button class="secondary" data-close="experiment-detail-dialog">
+          关闭
+        </button>
+      </div>
+      <div id="experiment-detail"></div>
+    </dialog>
+    <dialog
+      id="experiment-advanced-dialog"
+      aria-labelledby="experiment-advanced-title"
+    >
+      <div class="dialog-heading">
+        <h2 id="experiment-advanced-title">逐日命令与学说</h2>
+        <button class="secondary" data-close="experiment-advanced-dialog">
+          关闭
+        </button>
+      </div>
+      <p>
+        编辑 A/B 的 days
+        命令表、目标和配对种子。两方案天数必须一致。部署不能在此修改。
+      </p>
+      <textarea
+        id="experiment-json"
+        spellcheck="false"
+        aria-label="实验参数 JSON"
+      ></textarea
+      ><button id="experiment-json-save">采用高级设定</button>
+      <p id="experiment-json-error" role="alert"></p>
+    </dialog>
     <main class="game-board">
       <section class="battlefield" aria-label="初始战场">
         <div class="map-header">
@@ -584,7 +782,7 @@
       <div class="section-heading">
         <div>
           <h2>战场档案库</h2>
-          <p class="hint">管理草稿与实验来源 · 服务重启前请导出重要部署</p>
+          <p class="hint">管理草稿与实验来源 · 修改自动保存到本地</p>
         </div>
         <div class="library-filter">
           <input
@@ -631,7 +829,7 @@
       <button id="retry-request" class="secondary" hidden>重新载入</button
       ><span id="status" role="status" aria-live="polite"
         >连接指挥终端，开始部署。</span
-      ><span class="build-status">部署阶段 · 回合结算未开放</span>
+      ><span class="build-status">M6 · 本地归档 / 配对实验</span>
     </footer>
     <dialog id="auth-dialog" aria-labelledby="auth-title">
       <div class="section-heading">

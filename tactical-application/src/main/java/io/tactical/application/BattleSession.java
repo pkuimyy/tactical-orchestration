@@ -79,6 +79,42 @@ public final class BattleSession {
         Side.RED, new Batch(0, false, false, world.setup().red(), world.setup().redOperation()));
   }
 
+  /** Durable input/history checkpoint; timelines are regenerated and verified on load. */
+  public record Saved(
+      Scenario initial, long seed, int iterations, List<Day> days, Batch blue, Batch red) {
+    public Saved {
+      days = List.copyOf(days);
+    }
+  }
+
+  public Saved save(Scenario initial) {
+    return new Saved(
+        initial,
+        seed,
+        iterations,
+        List.copyOf(history.values()),
+        batches.get(Side.BLUE),
+        batches.get(Side.RED));
+  }
+
+  public static BattleSession restore(Saved saved) {
+    var session = new BattleSession(saved.initial(), saved.seed(), saved.iterations());
+    for (var day : saved.days()) {
+      var m = day.manifest();
+      if (!RuleSet.VERSION.equals(m.rulesVersion())
+          || !DaySimulation.RANDOM_VERSION.equals(m.randomVersion()))
+        throw new IllegalStateException("存档规则版本不兼容，请使用原版本程序读取");
+      session.submit(m.day(), Side.BLUE, 0, m.blue(), m.blueOperation());
+      session.submit(m.day(), Side.RED, 0, m.red(), m.redOperation());
+      session.commit(m.day(), Side.BLUE, 1);
+      session.commit(m.day(), Side.RED, 1);
+      if (!session.resolve(m.day()).equals(day)) throw new IllegalStateException("存档重放校验失败");
+    }
+    session.batches.put(Side.BLUE, saved.blue());
+    session.batches.put(Side.RED, saved.red());
+    return session;
+  }
+
   public View view() {
     return new View(
         completedDays + 1,
